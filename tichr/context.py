@@ -1,12 +1,13 @@
 import pandas as pd
 import numpy as np
-from RPpredictDEG import *
 from matplotlib.gridspec import GridSpec
 from scipy.stats import rankdata
 from scipy.stats import spearmanr,pearsonr
 from rpy2.robjects import r
 from rpy2.robjects.packages import importr
 from scipy.stats import mannwhitneyu
+from .RPpredictDEG import *
+
 
 
 def logneg(values):

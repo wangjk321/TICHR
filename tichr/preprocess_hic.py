@@ -8,9 +8,11 @@ from functools import partial
 from sys import exit
 import hicstraw
 from collections import defaultdict
-from dumphic import *
 import threading
 import concurrent.futures
+
+from .dumphic import *
+
 
 
 def oeNormalizeSparse(records,outType="OE"):

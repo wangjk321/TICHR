@@ -7,9 +7,11 @@ from sklearn.model_selection import train_test_split
 from matplotlib import cm
 import matplotlib.gridspec as gridspec
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, classification_report, confusion_matrix
-from PRC_ROC import *
 import warnings
 warnings.filterwarnings('ignore')
+
+from .PRC_ROC import *
+
 
 
 def cut_distance(df,rgdf,maxdis=500000,natype="zero"):   #df是RgxDf

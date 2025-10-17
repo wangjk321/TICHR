@@ -4,8 +4,10 @@ import matplotlib.pyplot as plt
 import os, time
 import tempfile
 import subprocess
-from preprocess_hic import *
 import pyBigWig
+
+from .preprocess_hic import *
+
 
 
 def makeSiteBedFunction(candidatesite,candidateGeneFile,readFileList,gtfile,

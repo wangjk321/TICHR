@@ -2,11 +2,13 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 import matplotlib.colors as mcolors
-from PRC_ROC import *
 import warnings
 warnings.filterwarnings('ignore')
 from scipy.stats import wilcoxon,ttest_1samp
 import os
+
+from .PRC_ROC import *
+
 
 
 def benchmarkvalue(RgDF_Ctrl,RgDF_Treat,degtype="all"):

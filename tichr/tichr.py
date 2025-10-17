@@ -3,9 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os, time
 import subprocess
-from preprocess_hic import *
-from tichr_function import *
-from highOrderStructure import *
+
 import random,string
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from concurrent.futures import ProcessPoolExecutor
@@ -13,6 +11,10 @@ import multiprocessing
 from multiprocessing import Pool
 from joblib import Parallel, delayed
 from tqdm import tqdm
+
+from .preprocess_hic import *
+from .tichr_function import *
+from .highOrderStructure import *
 
 
 class Tichr:

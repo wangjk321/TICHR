@@ -1,8 +1,8 @@
 import argparse
 import os
-from tichr import *
-from context import *
-from siteToGene import *
+from .tichr import *
+from .context import *
+from .siteToGene import *
 
 def main():
     parser = argparse.ArgumentParser(description="TICHR is software \n \

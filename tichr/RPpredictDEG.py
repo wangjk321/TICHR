@@ -1,5 +1,3 @@
-from RPmodel import *
-from PRC_ROC import *
 
 import sys
 import seaborn as sns 
@@ -7,6 +5,10 @@ import warnings
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
+
+from .RPmodel import *
+from .PRC_ROC import *
+
 
 #def 
 def makediffrank(list1,list2):

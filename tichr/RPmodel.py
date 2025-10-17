@@ -7,7 +7,8 @@ import time
 from multiprocessing import Pool
 from concurrent.futures import ProcessPoolExecutor
 from tqdm import tqdm
-from preprocess_hic import *
+
+from .preprocess_hic import *
 
 
 codepath = os.path.dirname(os.path.realpath(__file__))
