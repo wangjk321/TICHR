@@ -72,6 +72,12 @@ from tichr import *
 
 You can find a complete tutorial in https://tichr.readthedocs.io/
 
+Although the individual functions of TICHR were described separately, they could be streamlined into a typical workflow:
+
+<p align="center">
+  <img src="image/workflow.png" width="500">
+</p>
+
 ## Contact information
 You can open an issue in this repository, or contact the developer (wangjk321@gmail.com)
 
