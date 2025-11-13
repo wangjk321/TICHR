@@ -14,7 +14,6 @@ import concurrent.futures
 from .dumphic import *
 
 
-
 def oeNormalizeSparse(records,outType="OE"):
     distance_sums = defaultdict(float)
     distance_counts = defaultdict(float)

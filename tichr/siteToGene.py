@@ -4,10 +4,10 @@ import os
 import warnings
 warnings.filterwarnings('ignore')
 
-
 from .PRC_ROC import *
-from .highOrderStructure import *
 from .context import *
+from .highOrderStructure import *
+
 
 def matchgold(rgxfile,golddf,outname,goldcol,percent=False,withhead=False,returnDF=False,predGeneCol=10,predScoreCol=12):
     codepath = os.path.dirname(os.path.realpath(__file__))

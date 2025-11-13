@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os, time
 import subprocess
-
 import random,string
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from concurrent.futures import ProcessPoolExecutor
@@ -15,6 +14,7 @@ from tqdm import tqdm
 from .preprocess_hic import *
 from .tichr_function import *
 from .highOrderStructure import *
+
 
 
 class Tichr:
@@ -43,7 +43,7 @@ class Tichr:
         self.structureWeight = None
     
     def makeSiteBed(self,macs2species='hs',binResolution=100,
-                    blackregion=None,tmpdir=None,fixPeakWidth=False):
+                    blackregion=None,tmpdir=None,fixPeakWidth=False, only_promoter_area=100):
         self.macs2species = macs2species
         self.binResolution = binResolution
         if not tmpdir:
@@ -54,7 +54,7 @@ class Tichr:
                                                       species=macs2species,binResolution=binResolution,
                                                       peakToGeneMaxDistance=self.peakToGeneMaxDistance,
                                                       blackregion=blackregion, refgene_file=self.refgene_file,tmpdir=self.tmpdir,
-                                                      fixPeakWidth=fixPeakWidth)
+                                                      fixPeakWidth=fixPeakWidth, only_promoter_area=only_promoter_area)
 
 
     def makeSiteBdg(self, coverageMethod,spmr = False,quantileref=None,quantile_method=None,
@@ -121,7 +121,7 @@ class Tichr:
     def computeGenei(self,i,weightType,rpDecayDistance=10000,fixedFunctionType='rp-classic',
                  given_gamma=1.024238616787792, given_scale = 5.9594510043736655,
                  ref_gamma = 0.87, ref_scale = -4.80 + 11.63 * 0.87, hicmindistance=5000,
-                 logRgX=False,setpromoter1=False,ifUseHiCRef=True, goldWeightDf=None):
+                 logRgX=False,setpromoter1=False,ifUseHiCRef=True, goldWeightDf=None, noise_ratio=0,noise_quantile=0):
         
         t1 = time.time()
         # if i % 1000 == 0:
@@ -181,6 +181,19 @@ class Tichr:
         if logRgX:
             geneiWEscore=np.log1p(geneiWEscore)
         
+        if noise_quantile > 0:
+            quantile_threshold = np.percentile(geneiWEscore, noise_quantile * 100)
+            geneiWEscore[geneiWEscore < quantile_threshold] = 0
+
+        if noise_ratio > 0:
+            total_sum = np.sum(geneiWEscore)
+            if total_sum > 0:  
+                ratio_threshold = noise_ratio * total_sum
+                cumulative_sum = np.cumsum(np.sort(geneiWEscore))
+                # 找到比例对应的阈值位置
+                geneiWEscore[np.searchsorted(cumulative_sum, ratio_threshold)] = 0
+
+        
         #这个是Rg的值
         #geneiWEscoreSum = np.array(geneiPeakxEpigenome).sum()
         geneiWEscoreSum = geneiWEscore.sum()
@@ -224,26 +237,12 @@ class Tichr:
     def computeAllGene(self,weightType,halfDistance=10000,fixedFunctionType='rp-classic',
                  given_gamma=1.024238616787792, given_scale = 5.9594510043736655,
                  ref_gamma = 0.87, ref_scale = -4.80 + 11.63 * 0.87, hicmindistance=5000,
-                 logRgX=False,setpromoter1=False,threads=1,ifUseHiCRef=False, goldWeightDf=None):
+                 logRgX=False,setpromoter1=False,threads=1,ifUseHiCRef=False, goldWeightDf=None,noise_ratio=0,noise_quantile=0):
           
         RgxDfList = []
         RgList=[]
         numOfGene = self.candidateGeneDF.shape[0]
 
-        # if threads <= 1:
-        #     for i in range(numOfGene):
-        #         geneiWEscoreSum,genei_Rgx_df = self.computeGenei(i,weightType,rpDecayDistance=halfDistance,
-        #                                                         fixedFunctionType=fixedFunctionType,
-        #                                                         given_gamma=given_gamma, given_scale = given_scale,
-        #                                                         ref_gamma = ref_gamma, ref_scale = ref_scale, 
-        #                                                         hicmindistance=hicmindistance,
-        #                                                         logRgX=logRgX,setpromoter1=setpromoter1,
-        #                                                         ifUseHiCRef=ifUseHiCRef,goldWeightDf=goldWeightDf)
-                
-        #         RgxDfList.append(genei_Rgx_df)
-        #         RgList.append(geneiWEscoreSum)
-
-        #加了进度条
         if threads <= 1:
             # Wrap the loop with tqdm to show a progress bar
             for i in tqdm(range(numOfGene), desc="Processing genes", unit="gene"):
@@ -252,61 +251,11 @@ class Tichr:
                     fixedFunctionType=fixedFunctionType, given_gamma=given_gamma, 
                     given_scale=given_scale, ref_gamma=ref_gamma, ref_scale=ref_scale, 
                     hicmindistance=hicmindistance, logRgX=logRgX, setpromoter1=setpromoter1, 
-                    ifUseHiCRef=ifUseHiCRef, goldWeightDf=goldWeightDf
+                    ifUseHiCRef=ifUseHiCRef, goldWeightDf=goldWeightDf,noise_ratio=noise_ratio,noise_quantile=noise_quantile
                 )
                 RgxDfList.append(genei_Rgx_df)
                 RgList.append(geneiWEscoreSum)
         else:
-            #修改第一版
-
-            # print("Using multiple CPUs with ThreadPoolExecutor")
-            
-            # with ThreadPoolExecutor(max_workers=threads) as executor:
-            #     futures = []
-            #     for i in range(numOfGene):
-            #         future = executor.submit(self.computeGenei, i, weightType, rpDecayDistance=halfDistance,
-            #                                 fixedFunctionType=fixedFunctionType, given_gamma=given_gamma,
-            #                                 given_scale=given_scale, ref_gamma=ref_gamma, ref_scale=ref_scale, 
-            #                                 hicmindistance=hicmindistance, logRgX=logRgX, setpromoter1=setpromoter1,
-            #                                 ifUseHiCRef=ifUseHiCRef, goldWeightDf=goldWeightDf)
-            #         futures.append(future)
-                
-            #     for future in as_completed(futures):
-            #         geneiWEscoreSum, genei_Rgx_df = future.result()
-            #         RgxDfList.append(genei_Rgx_df)
-            #         RgList.append(geneiWEscoreSum)
-
-            #原版的
-            # print("Using multile CPUs")
-            # args = [(i, self, weightType, halfDistance, fixedFunctionType, given_gamma, given_scale, 
-            #         ref_gamma, ref_scale, hicmindistance, logRgX, setpromoter1,ifUseHiCRef) 
-            #         for i in range(numOfGene)]
-            # # 计算其实很快，但是调用如self.nomhicdf等大变量，反而降低了速度
-            # with Pool(threads) as pool:
-            #     results = pool.map(self.processGene, args)
-
-            # for geneiWEscoreSum, genei_Rgx_df in results:
-            #     RgxDfList.append(genei_Rgx_df)
-            #     RgList.append(geneiWEscoreSum)
-
-
-            #修改第二版
-            # with ProcessPoolExecutor(max_workers=threads) as executor:
-            #     futures = []
-            #     for i in range(numOfGene):
-            #         future = executor.submit(self.computeGenei, i, weightType, rpDecayDistance=halfDistance,
-            #                                 fixedFunctionType=fixedFunctionType, given_gamma=given_gamma,
-            #                                 given_scale=given_scale, ref_gamma=ref_gamma, ref_scale=ref_scale, 
-            #                                 hicmindistance=hicmindistance, logRgX=logRgX, setpromoter1=setpromoter1,
-            #                                 ifUseHiCRef=ifUseHiCRef, goldWeightDf=goldWeightDf)
-            #         futures.append(future)
-                
-            #     for future in as_completed(futures):
-            #         geneiWEscoreSum, genei_Rgx_df = future.result()
-            #         RgxDfList.append(genei_Rgx_df)
-            #         RgList.append(geneiWEscoreSum)
-
-            #ProcessPoolExecutor再修改
             with ProcessPoolExecutor() as executor:
                 futures = [executor.submit(self.computeGenei, i, weightType, rpDecayDistance=halfDistance,
                                             fixedFunctionType=fixedFunctionType, given_gamma=given_gamma,
@@ -321,56 +270,6 @@ class Tichr:
                     RgxDfList.append(genei_Rgx_df)
                     RgList.append(geneiWEscoreSum)
 
-            #修改第三版
-            # with ThreadPoolExecutor(max_workers=threads) as executor:
-            #     futures = []
-            #     for i in range(numOfGene):
-            #         # 提取每个基因所需的最小数据
-            #         gene_data = self.candidateGeneDF.iloc[i][['geneChr', 'geneStart', 'geneEnd', 'geneSymbol']]
-            #         future = executor.submit(self.computeGenei, gene_data, weightType, rpDecayDistance=halfDistance,
-            #                                 fixedFunctionType=fixedFunctionType, given_gamma=given_gamma,
-            #                                 given_scale=given_scale, ref_gamma=ref_gamma, ref_scale=ref_scale, 
-            #                                 hicmindistance=hicmindistance, logRgX=logRgX, setpromoter1=setpromoter1,
-            #                                 ifUseHiCRef=ifUseHiCRef, goldWeightDf=goldWeightDf)
-            #         futures.append(future)
-                
-            #     # 处理结果
-            #     for future in as_completed(futures):
-            #         geneiWEscoreSum, genei_Rgx_df = future.result()
-            #         RgxDfList.append(genei_Rgx_df)
-            #         RgList.append(geneiWEscoreSum)
-
-            #用multiprocessing 
-            # print("Using multiple CPUs with multiprocessing.Pool")
-
-            # # 使用 Pool 来并行处理任务
-            # with Pool(processes=threads) as pool:
-            #     # map 会将任务分配到进程池中的多个进程
-            #     results = pool.starmap(self.computeGenei, 
-            #                         [(i, weightType, halfDistance, fixedFunctionType, given_gamma, 
-            #                             given_scale, ref_gamma, ref_scale, hicmindistance, 
-            #                             logRgX, setpromoter1, ifUseHiCRef, goldWeightDf) 
-            #                             for i in range(numOfGene)])
-                
-            #     # 将结果分开到对应的列表
-            #     for geneiWEscoreSum, genei_Rgx_df in results:
-            #         RgxDfList.append(genei_Rgx_df)
-            #         RgList.append(geneiWEscoreSum)
-
-
-        #     results = Parallel(n_jobs=threads)(delayed(self.computeGenei)(i, weightType, rpDecayDistance=halfDistance,
-        #                                                         fixedFunctionType=fixedFunctionType,
-        #                                                         given_gamma=given_gamma, given_scale=given_scale,
-        #                                                         ref_gamma=ref_gamma, ref_scale=ref_scale,
-        #                                                         hicmindistance=hicmindistance,
-        #                                                         logRgX=logRgX, setpromoter1=setpromoter1,
-        #                                                         ifUseHiCRef=ifUseHiCRef, goldWeightDf=goldWeightDf)
-        #                                 for i in range(numOfGene))
-        
-        # # 将结果分开到对应的列表
-        #     for geneiWEscoreSum, genei_Rgx_df in results:
-        #         RgxDfList.append(genei_Rgx_df)
-        #         RgList.append(geneiWEscoreSum)
             
         
         RgxDf = pd.concat(RgxDfList, ignore_index=True)

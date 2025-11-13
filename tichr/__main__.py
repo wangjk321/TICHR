@@ -5,11 +5,14 @@ from .context import *
 from .siteToGene import *
 
 def main():
-    parser = argparse.ArgumentParser(description="TICHR is software \n \
-                                                to analyse transcriptional regulation \n \
-                                                by integrating Epigenome (ChIP-seq etc.), \n \
-                                                3D genome (Hi-C) and Transcriptome (RNA-seq) \n \
-                                                (https://github.com/wangjk321/tichr) ")
+    parser = argparse.ArgumentParser(
+        description=(
+    "TICHR is software to analyse transcriptional regulation "
+    "by integrating Epigenome (ChIP-seq etc.), 3D genome (Hi-C) and Transcriptome (RNA-seq).\n\n"
+    "See the project page at https://github.com/wangjk321/tichr.\n\n"
+    "This command-line provides basic usages; more functions are available within the Python API."
+)
+                    )
     subparsers = parser.add_subparsers(help="Choose the mode to use sub-commands")
 
 #------------------------------------------------------------------
@@ -17,7 +20,8 @@ def main():
     def func_calcu(args):
         print("Creating Tichr object...")
         args.readFileList = args.readFileList.split(",")
-        args.readFileList2 = args.readFileList2.split(",")
+        if args.readFileList2 != "nodata":
+            args.readFileList2 = args.readFileList2.split(",")
         
         if not os.path.exists(args.outdir): os.makedirs(args.outdir)
         
@@ -47,28 +51,41 @@ def main():
 
         print("Start Computing...")
         tichobj.computeAllGene(args.weightType,fixedFunctionType=args.fixedFunctionType,halfDistance=args.halfDistance,
-                               setpromoter1=args.setpromoter1,threads=1,ifUseHiCRef=args.ifUseHiCRef,)
+                               setpromoter1=args.setpromoter1,threads=1,ifUseHiCRef=args.ifUseHiCRef,
+                               noise_ratio=args.noise_ratio, noise_quantile=args.noise_quantile)
         
         tichobj.RgxDf.to_csv(args.outdir + "/RgX.tsv",header=None,sep="\t",index=None)
-        tichobj.RgDF.to_csv(args.outdir + "/Rg.tsv",header=None,sep="\t",index=None)
+        tichobj.RgDf.to_csv(args.outdir + "/Rg.tsv",header=None,sep="\t",index=None)
         print("Finish Computing...")
 
 
         if args.tpmfile and args.structureTypeList and args.structureFileList and args.structureWeightList:
             print("Start adjust RgX and Rg...")
             args.tpmfile = os.path.abspath(args.tpmfile)
+
             args.structureTypeList = args.structureTypeList.split(",")
+
             args.structureFileList = args.structureFileList.split(",")
+
             args.structureWeightList = [float(i) for i in args.structureWeightList.split(",")]
             if len(args.structureTypeList) != len(args.structureFileList) or len(args.structureTypeList) != len(args.structureWeightList):
                 raise ValueError("The length of structureTypeList, structureFileList, and structureWeightList must be the same.")
-            
             args.tmpcolrep= [int(i) for i in args.tmpcolrep.split(",")]
             adjvalue(args.outdir + "/RgX.tsv",args.outdir + "/Rg.tsv",args.outdir,args.tpmfile,
                     args.structureTypeList,args.structureFileList,args.structureWeightList,
                     tmpcolrep=args.tmpcolrep,ignorehead=args.ignorehead,tmpgeneID=args.tmpgeneID,
                     ranktype=args.ranktype,)
             print("Finish adjust RgX and Rg...")
+
+    def func_negative(args):
+        print("Merging data frames...")
+        rg_merged,rgx_merged = mergeDF(args.rg_ctrl,args.rg_treat,args.rgx_ctrl,args.rgx_treat,minRgx=args.min_rgx,minRgxRatio=args.min_rgx_ratio)
+        outdir=args.outdir
+        if not os.path.exists(outdir): os.makedirs(outdir)
+        extractNeg(rg_merged, rgx_merged,showInteration=False,
+                corrtype=args.corrtype,filetype="pandas",
+                outdir=outdir,outname="ERnegative",minRgxRatio=args.min_rgx_ratio)
+        
         
 
     #input file
@@ -88,9 +105,9 @@ def main():
     input_group.add_argument("--TSSrange",help="Defines the promoter region as transcription start site (TSS) ± this range.",type=int,default=500)
     input_group.add_argument("--peakToGeneMaxDistance",help="Maximum distance (in base pairs) allowed between a peak and a gene for linking",type=int,default=100000)
     input_group.add_argument("--hicfilepath",help="Path to hic files in Juicer .hic format.",type=str)
-    input_group.add_argument("--readFileList2",help="A second set of epigenome data files, in the same format as readFileList. \
+    input_group.add_argument("--readFileList2",default="nodata",help="A second set of epigenome data files, in the same format as readFileList. \
                              For example, DNase signals can be provided in readFileList and H3K27ac signals in readFileList2. \
-                             These two signals are combined using the geometric mean",type=str,default=None)
+                             These two signals are combined using the geometric mean",type=str)
     input_group.add_argument("--outdir",help="Output directory",default="outdir",type=str)
 
     #process epigenome command
@@ -145,64 +162,87 @@ def main():
     adjust_group.add_argument("--structureWeightList",type=str,default=None,help="A comma-separated list of weights corresponding to each structure type. \
                               must be supplied in this way 0.5,1.2,5,2,2 ")
     adjust_group.add_argument("--ranktype",type=int,default=0,help="ranktype could be sumrank or diffrak")
+    adjust_group.add_argument("--noise_ratio",type=float,default=0,help=" If the proportion of the Rgx value to the Rg value of the gene is less than this value, the Rgx value will be set to 0.")
+    adjust_group.add_argument("--noise_quantile",type=float,default=0,help="If the percentile of the Rgx value among all Rgx values of the gene is less than this value, the Rgx value will be set to 0.")
 
     parser_calcu.set_defaults(func=func_calcu)
 
 
-#------------------------------------------------------------------
-    #Function2 DEG analysis for Rg and RgX
-    parser_deg = subparsers.add_parser("deg", help="Differential analysis based on Rg and RgX")
+# #------------------------------------------------------------------
+#     #Function2 DEG analysis for Rg and RgX
+#     parser_deg = subparsers.add_parser("deg", help="Differential analysis based on Rg and RgX")
 
-#------------------------------------------------------------------
-    #Function3 Predict candidate enhancers or target genes
-    parser_ep = subparsers.add_parser("ep", help="Predict candidate enhancers or target genes")
+# #------------------------------------------------------------------
+#     #Function3 Predict candidate enhancers or target genes
+#     parser_ep = subparsers.add_parser("ep", help="Predict candidate enhancers or target genes")
 
 
-#------------------------------------------------------------------
-    #Function4 identification of context-specific functions
-    parser_diff = subparsers.add_parser("context", help="Identification of context-specific functions")
-    context_input = parser_diff.add_argument_group("Input file argument for context-specific analysis")
-    context_input.add_argument("type",help="choose a mode from [test,extract]. Use 'test' to exam if a factor has context-specific function. \
-                               Use 'extract' to extract CRM pairs with negative function",default="test",type=str)
-    context_input.add_argument("mergedRgFile",help="Files providing geneRg_ctrl, geneRg_treat, geneTPM, geneLogfc, geneID and geneFDR")
-    context_input.add_argument("--rg_ctrl_col",type=int,)
-    context_input.add_argument("--rg_treat_col",type=int)
-    context_input.add_argument("--tpm_col",type=int)
-    context_input.add_argument("--logfc_col",type=int)
+# #------------------------------------------------------------------
+#     #Function4 identification of context-specific functions
+#     parser_diff = subparsers.add_parser("context", help="Identification of context-specific functions")
+#     context_input = parser_diff.add_argument_group("Input file argument for context-specific analysis")
+#     context_input.add_argument("type",help="choose a mode from [test,extract]. Use 'test' to exam if a factor has context-specific function. \
+#                                Use 'extract' to extract CRM pairs with negative function",default="test",type=str)
+#     context_input.add_argument("mergedRgFile",help="Files providing geneRg_ctrl, geneRg_treat, geneTPM, geneLogfc, geneID and geneFDR")
+#     context_input.add_argument("--rg_ctrl_col",type=int,)
+#     context_input.add_argument("--rg_treat_col",type=int)
+#     context_input.add_argument("--tpm_col",type=int)
+#     context_input.add_argument("--logfc_col",type=int)
     
-    context_test = parser_diff.add_argument_group("Argument for 'test' analysis")
-    context_test.add_argument("--basedon",default="rg")
+#     context_test = parser_diff.add_argument_group("Argument for 'test' analysis")
+#     context_test.add_argument("--basedon",default="rg")
     
-    context_extract = parser_diff.add_argument_group("Argument for 'extract' analysis")
-    context_extract.add_argument("--mergedRgxFile",help="Files providing sites(chr,start,end),rgx_geneID_col,rgx_ctrl_col,rgx_treat_col")
-    context_extract.add_argument("--geneid_col",type=int)
-    context_extract.add_argument("--geneFDR_col",type=int)
-    context_extract.add_argument("--rgx_geneID_col",type=int)
-    context_extract.add_argument("--rgx_ctrl_col",type=int)
-    context_extract.add_argument("--rgx_treat_col",type=int)
+#     context_extract = parser_diff.add_argument_group("Argument for 'extract' analysis")
+#     context_extract.add_argument("--mergedRgxFile",help="Files providing sites(chr,start,end),rgx_geneID_col,rgx_ctrl_col,rgx_treat_col")
+#     context_extract.add_argument("--geneid_col",type=int)
+#     context_extract.add_argument("--geneFDR_col",type=int)
+#     context_extract.add_argument("--rgx_geneID_col",type=int)
+#     context_extract.add_argument("--rgx_ctrl_col",type=int)
+#     context_extract.add_argument("--rgx_treat_col",type=int)
 
-    context_output = parser_diff.add_argument_group("Output argument for context-specific analysis")
-    context_output.add_argument("--outname",default="TF")
-
-    def contextfunc(args):
-        if args.type ==  "test":
-            prepare_select_by_rank(args.mergedRgFile, args.rg_ctrl_col, args.rg_treat_col, args.tpm_col, args.logfc_col, 
-                               basedon = args.basedon,label=args.outname)
-        elif args.type ==  "extract":
-            extractNeg(args.mergedRgFile, args.mergedRgxFile, args.rg_ctrl_col, args.rg_treat_col, args.tpm_col, args.logfc_col, 
-                       args.geneid_col,args.geneFDR_col, args.rgx_geneID_col,args.rgx_ctrl_col,args.rgx_treat_col,
-                       negboolRgX=None,iteration=True,showInteration=True,iteration_count=0,outdir="identify_context")
-
-    parser_diff.set_defaults(func=contextfunc)
+#     context_output = parser_diff.add_argument_group("Output argument for context-specific analysis")
+#     context_output.add_argument("--outname",default="TF")
 
 
-#------------------------------------------------------------------
-    #Function5 large-scale analysis of Rg and RgX
-    parser_large = subparsers.add_parser("large", help="Large-scale analysis of Rg and RgX")
+    parser_neg = subparsers.add_parser("neg", help="Identify context-specific repressive functions")
+    neg_nes = parser_neg.add_argument_group("Necessary Arguments")
 
-#------------------------------------------------------------------
-    #Function6 time series analysis of Rg and RgX
-    parser_time = subparsers.add_parser("time", help="Time series analysis of Rg and RgX")
+    # neg_nes = neg_input.add_argument_group("Necessary arguments")
+    neg_nes.add_argument("--outdir", type=str,help="Direction for output files.")
+    neg_nes.add_argument("--rg_ctrl", type=str,help="Direction to control group Rg file.")
+    neg_nes.add_argument("--rg_treat", type=str,help="Direction to treated group Rg file.")
+    neg_nes.add_argument("--rgx_ctrl", type=str,help="Direction to control group Rgx file.")
+    neg_nes.add_argument("--rgx_treat", type=str,help="Direction to treated group Rgx file.")
+
+    neg_opt = parser_neg.add_argument_group("Options")
+    neg_opt.add_argument("--corrtype", type=str, default="pearson", 
+                               help="Could be 'spearman' or 'pearson' (Default: pearson)")
+    neg_opt.add_argument("--min_rgx", type=float, default=0.1, help="Filter the site-to-gene links by RgX value > min Rgx. (Default: 0.1)")
+    neg_opt.add_argument("--min_rgx_ratio", type=float, default=0.01, 
+                               help="Filter the site-to-gene links by RgX Ratio > min RgxRatio (Default: 0.01)")
+    parser_neg.set_defaults(func=func_negative)
+    
+
+
+#     def contextfunc(args):
+#         if args.type ==  "test":
+#             prepare_select_by_rank(args.mergedRgFile, args.rg_ctrl_col, args.rg_treat_col, args.tpm_col, args.logfc_col, 
+#                                basedon = args.basedon,label=args.outname)
+#         elif args.type ==  "extract":
+#             extractNeg(args.mergedRgFile, args.mergedRgxFile, args.rg_ctrl_col, args.rg_treat_col, args.tpm_col, args.logfc_col, 
+#                        args.geneid_col,args.geneFDR_col, args.rgx_geneID_col,args.rgx_ctrl_col,args.rgx_treat_col,
+#                        negboolRgX=None,iteration=True,showInteration=True,iteration_count=0,outdir="identify_context")
+
+#     parser_diff.set_defaults(func=contextfunc)
+
+
+# #------------------------------------------------------------------
+#     #Function5 large-scale analysis of Rg and RgX
+#     parser_large = subparsers.add_parser("large", help="Large-scale analysis of Rg and RgX")
+
+# #------------------------------------------------------------------
+#     #Function6 time series analysis of Rg and RgX
+#     parser_time = subparsers.add_parser("time", help="Time series analysis of Rg and RgX")
 
 #------------------------------------------------------------------
     parser.add_argument("-V","--version",help="Show tichr version",action='store_true',default=False)
@@ -214,13 +254,15 @@ def main():
         sys.exit(0)
         
     if args.version:
-        print("tichr version 0.0.2")
+        print("tichr version 0.1.4")
         exit(0)
     try:
         func = args.func
     except AttributeError:
         parser.error("Too few arguments, please specify more parameters")
     func(args)
+
+    
 
 if __name__ == '__main__':
     main()  

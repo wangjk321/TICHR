@@ -6,6 +6,7 @@ from scipy.stats import spearmanr,pearsonr
 from rpy2.robjects import r
 from rpy2.robjects.packages import importr
 from scipy.stats import mannwhitneyu
+
 from .RPpredictDEG import *
 
 
@@ -474,7 +475,7 @@ def extractNeg(mergedRgFile, mergedRgxFile, rgctrl_col_num=9, rgtreat_col_num=10
 
     #make adjust Rg
     genesWithNeg = df_rgx["geneID"][negboolRgX].unique()
-    
+
     # Re-calculate Rg
     adj_Rg_ctrl = df_rgx.groupby("geneID")["adj_Rgx_ctrl"].sum()
     adj_Rg_treat = df_rgx.groupby("geneID")["adj_Rgx_treat"].sum()

@@ -9,10 +9,9 @@ import pyBigWig
 from .preprocess_hic import *
 
 
-
 def makeSiteBedFunction(candidatesite,candidateGeneFile,readFileList,gtfile,
                         species='hs',binResolution=100,peakToGeneMaxDistance=100000,
-                        blackregion=None, refgene_file=None,tmpdir='tmp_makeSiteBdg',fixPeakWidth=False):
+                        blackregion=None, refgene_file=None,tmpdir='tmp_makeSiteBdg',fixPeakWidth=False, only_promoter_area=100):
     
     codepath = os.path.dirname(os.path.realpath(__file__))
 
@@ -47,7 +46,7 @@ def makeSiteBedFunction(candidatesite,candidateGeneFile,readFileList,gtfile,
         candidatesite_file = tmpdir+"/surrondingbin.bed"
     elif candidatesite == 'onlypromoter':
         print("Only use promoter")
-        awk_command = f'''awk -v OFS="\\t" '$6 == "+" {{print $1,$2-100,$2+100}} $6 == "-" {{print $1,$3-100,$3+100}}' {candidateGeneFile} > {tmpdir}/onlyPromoter.bed'''
+        awk_command = f'''awk -v OFS="\\t" '$6 == "+" {{print $1,$2-{only_promoter_area},$2+{only_promoter_area}}} $6 == "-" {{print $1,$3-{only_promoter_area},$3+{only_promoter_area}}}' {candidateGeneFile} > {tmpdir}/onlyPromoter.bed'''
         subprocess.run(awk_command, shell=True, check=True)
         candidatesite_file = tmpdir+"/onlyPromoter.bed"
     elif os.path.exists(candidatesite):  # bed3 file 
