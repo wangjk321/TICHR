@@ -82,6 +82,6 @@ Although the individual functions of TICHR were described separately, they could
 You can open an issue in this repository, or contact the developer (wangjk321@gmail.com)
 
 ## Citations
-Jiankang Wang, Puxuan Sun, Bo Zhou, Yaqing Liu, Ke-wei Zheng, Jun Wu, Haoping Chen. TICHR: Transcriptional regulation analysis by integrating epigenome, 3D genome and transcriptome. In preparation, 2025.
+In preparation, 2025.
 
 
