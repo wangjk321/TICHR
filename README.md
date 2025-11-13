@@ -1,9 +1,21 @@
 ## TICHR: Transcriptional regulation analysis by integrating epigenome, 3D genome and transcriptome
 
 
+<p align="center">
+  <img src="https://img.shields.io/pypi/v/tichr?color=4c8bf5&label=PyPI%20Version">
+  <img src="https://img.shields.io/badge/Python-3.8%2B-blue">
+  <img src="https://readthedocs.org/projects/tichr/badge/?version=latest">
+  <img src="https://img.shields.io/pypi/l/tichr?color=brightgreen&label=License">
+  <img src="https://img.shields.io/github/stars/wangjk321/tichr?style=social">
+</p>
+
+
+
 ## Introduction
 
-<img src="image/logo.png" width="400">
+<p align="center">
+  <img src="image/logo.png" width="400">
+</p>
 
 Deciphering transcriptional regulation across multiple omics layers is essential for understanding cellular processes and disease mechanisms, yet remains challenging due to the limited direct connections among epigenomic, 3D genomic, and transcriptomic data. Here, we present TICHR, a scalable multiomics integration framework that quantifies both site-to-gene and gene-level regulation through diverse weighting strategies, enabling genome-wide characterization of regulatory programs. 
 
@@ -12,7 +24,9 @@ Deciphering transcriptional regulation across multiple omics layers is essential
 
 TICHR offered sophisticated downstream functions to address diverse research questions for transcriptional regulation, including enhancer prediction, attribution of transcriptional changes, assessment of regulation–transcription concordance, identification of context-specific regulations, cross-sample analysis of large-scale and single-cell data, and characterization of time-series transcriptional dynamics. These multi-task capabilities establish TICHR as an efficient framework for studying complex transcriptional mechanisms.
 
-<img src="image/overall.png" width="800">
+<p align="center">
+  <img src="image/overall.png" width="800">
+</p>
 
 
 ## Installation
@@ -45,5 +59,7 @@ You can find a complete tutorial in https://tichr.readthedocs.io/
 
 
 ## Citations
+```
 Jiankang Wang, Puxuan Sun, Bo Zhou, Yaqing Liu, Ke-wei Zheng, Jun Wu, Haoping Chen. TICHR: Transcriptional regulation analysis by integrating epigenome, 3D genome and transcriptome. In preparation, 2025.
+```
 
