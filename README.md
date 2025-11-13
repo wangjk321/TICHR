@@ -65,7 +65,6 @@ tichr --help
 2. **Python Module** — Advanced users can import TICHR as a Python package and use its functions programmatically. For example:
 
 ``` python
-import sys
 from tichr import *
 ```
 
@@ -73,9 +72,10 @@ from tichr import *
 
 You can find a complete tutorial in https://tichr.readthedocs.io/
 
+## Contact information
+You can open an issue in this repository, or contact the developer (wangjk321@gmail.com)
 
 ## Citations
-```
 Jiankang Wang, Puxuan Sun, Bo Zhou, Yaqing Liu, Ke-wei Zheng, Jun Wu, Haoping Chen. TICHR: Transcriptional regulation analysis by integrating epigenome, 3D genome and transcriptome. In preparation, 2025.
-```
+
 
