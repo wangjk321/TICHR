@@ -5,21 +5,23 @@
   <a href="https://pypi.org/project/tichr/">
     <img src="https://img.shields.io/pypi/v/tichr?color=4C8BF5&label=PyPI%20Version">
   </a>
+  <a href="https://tichr.readthedocs.io/en/latest/">
+    <img src="https://readthedocs.org/projects/tichr/badge/?version=latest&color=4C8BF5">
+  </a>
   <a href="https://pepy.tech/project/tichr">
     <img src="https://static.pepy.tech/badge/tichr" alt="Downloads">
   </a>
   <img src="https://img.shields.io/badge/Python-3.8%2B-3A6EDB">
-  <a href="https://tichr.readthedocs.io/en/latest/">
-    <img src="https://readthedocs.org/projects/tichr/badge/?version=latest&color=4C8BF5">
-  </a>
   <img src="https://img.shields.io/pypi/l/tichr?color=39CC8F&label=License">
   <img src="https://img.shields.io/github/last-commit/wangjk321/tichr?color=4C8BF5">
   <img src="https://img.shields.io/github/repo-size/wangjk321/tichr?color=3A6EDB">
   <a href="https://github.com/wangjk321/tichr/stargazers">
     <img src="https://img.shields.io/github/stars/wangjk321/tichr?style=social">
   </a>
+  <!--
   <img src="https://img.shields.io/github/watchers/wangjk321/tichr?style=social">
   <img src="https://img.shields.io/github/followers/wangjk321?style=social">
+  -->
 </p>
 
 
