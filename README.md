@@ -11,6 +11,9 @@
   <a href="https://pepy.tech/project/tichr">
     <img src="https://static.pepy.tech/badge/tichr" alt="Downloads">
   </a>
+  <a href="https://doi.org/10.5281/zenodo.17629590">
+    <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.17629590.svg">
+  </a>
   <img src="https://img.shields.io/badge/Python-3.8%2B-3A6EDB">
   <img src="https://img.shields.io/pypi/l/tichr?color=39CC8F&label=License">
   <img src="https://img.shields.io/github/last-commit/wangjk321/tichr?color=4C8BF5">
@@ -77,6 +80,8 @@ Although the individual functions of TICHR were described separately, they could
 <p align="center">
   <img src="image/workflow.png" width="500">
 </p>
+
+Deposited Data for the TICHR Project: https://zenodo.org/records/17629590
 
 ## Contact information
 You can open an issue in this repository, or contact the developer (wangjk321@gmail.com)
