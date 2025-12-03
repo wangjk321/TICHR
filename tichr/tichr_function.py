@@ -85,6 +85,7 @@ def makeSiteBdgFunction(candidatesite_file,readFileList,gtfile,coverageMethod,fi
         print("use spmr")
 
     if file_type =="bam":
+        print("Input epigenome signal is BAM.")
         if multiBAMmerge == 'mean':
             peakdf_values = []
             for read_bamfile in readFileList:
@@ -106,7 +107,8 @@ def makeSiteBdgFunction(candidatesite_file,readFileList,gtfile,coverageMethod,fi
                                 stdout=open(tmpdir+"/ExtractRead.log", "w"), stderr=subprocess.STDOUT)
             candidatesite_coverage = pd.read_csv(tmpdir+"/candidateSiteCoverage.bdg",sep='\t',header=None)
 
-    elif file_type == "bw" or file_type == "bigWig" or file_type == "bigwig":  
+    elif file_type == "bw" or file_type == "bigWig" or file_type == "bigwig": 
+        print("Input epigenome signal is Bigwig.")
         candidatesite_coverage = pd.read_csv(candidatesite_file, sep="\t", header=None, names=["chr", "start", "end"])
         candidatesite_coverage['value'] = 0
         spmr_weight = 1
@@ -151,6 +153,7 @@ def makeSiteBdgFunction(candidatesite_file,readFileList,gtfile,coverageMethod,fi
         candidatesite_coverage = pd.read_csv(tmpdir+"/candidateSiteCoverage.bdg",sep='\t',header=None)
 
     elif file_type == "bedGraph" or file_type == "bedgraph":
+        print("Input epigenome signal is BedGraph.")
         if multiBAMmerge == 'mean':
             peakdf_values = []
             for read_signal_file in readFileList:
