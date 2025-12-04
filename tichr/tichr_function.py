@@ -16,7 +16,7 @@ def makeSiteBedFunction(candidatesite,candidateGeneFile,readFileList,gtfile,
     codepath = os.path.dirname(os.path.realpath(__file__))
 
     if not os.path.exists(tmpdir): os.makedirs(tmpdir)
-    print("Temporary directory created at: " + tmpdir)
+    print("***Temporary directory created at: " + tmpdir)
 
     if not blackregion:
         with open(tmpdir+"/blackregion.blank.tmp", 'w') as file: pass  # 不写入任何内容
@@ -26,31 +26,31 @@ def makeSiteBedFunction(candidatesite,candidateGeneFile,readFileList,gtfile,
         with open(tmpdir+"/refgene_file.blank.tmp", 'w') as file: pass  # 不写入任何内容
         refgene_file=tmpdir+"/refgene_file.blank.tmp"
     
-    print("Step1. setting candidate sites")
+    print("***Setting candidate sites")
     # candidatesite 的类型有三种：
     # 一是给定bed文件
     # 二是通过对bamfile call peak
     # 三是启动子周围的所有区间
     if candidatesite == "denovo_peak":
-        print("Call peaks from the given bam files")
+        print("......Call peaks from the given bam files")
         subprocess.run(["bash", codepath + "/bashcode/ABC_make_candidate.sh",
                     species,tmpdir, " ".join(readFileList), 
                     gtfile, blackregion,refgene_file], stdout=open(tmpdir+"/denovo_peak.log", "w"), stderr=subprocess.STDOUT)
         candidatesite_file = tmpdir+"/candidatebed.enhancer.bed"
     elif candidatesite == 'surronding_bin':
-        print("Generating bins for each "+str(binResolution)+"bp")
+        print("......Generating bins for each "+str(binResolution)+"bp")
 
         subprocess.run(["bash", codepath + "/bashcode/makeSurrondingBin.sh", 
                         candidateGeneFile,str(peakToGeneMaxDistance),gtfile,str(binResolution),tmpdir], 
                         stdout=open(tmpdir+"/SurrondongBin.log", "w"))
         candidatesite_file = tmpdir+"/surrondingbin.bed"
     elif candidatesite == 'onlypromoter':
-        print("Only use promoter")
+        print("......Only use promoter")
         awk_command = f'''awk -v OFS="\\t" '$6 == "+" {{print $1,$2-{only_promoter_area},$2+{only_promoter_area}}} $6 == "-" {{print $1,$3-{only_promoter_area},$3+{only_promoter_area}}}' {candidateGeneFile} > {tmpdir}/onlyPromoter.bed'''
         subprocess.run(awk_command, shell=True, check=True)
         candidatesite_file = tmpdir+"/onlyPromoter.bed"
     elif os.path.exists(candidatesite):  # bed3 file 
-        print("Use a user-defined candidate bed file")
+        print("......Use a user-defined candidate bed file")
         if fixPeakWidth:
             command = f"cat {candidatesite} | cut -f 1-3 | sortBed | mergeBed | " \
                       f"awk -v OFS='\\t' '{{mid=int(($2+$3)/2); print $1, mid-250, mid+250}}' | awk '$2>0'|sortBed | " \
@@ -78,13 +78,13 @@ def makeSiteBdgFunction(candidatesite_file,readFileList,gtfile,coverageMethod,fi
     
     codepath = os.path.dirname(os.path.realpath(__file__))
 
-    print("Step2. Extracting read counts from bam files")
+    print("***Extracting read counts from epigenome files")
     spmr_flag = 'yes' if spmr else "no"
 
     if spmr_flag == 'yes':
         print("use spmr")
 
-    if file_type =="bam":
+    if file_type in ["bam","BAM","Bam"]:
         print("Input epigenome signal is BAM.")
         if multiBAMmerge == 'mean':
             peakdf_values = []
@@ -108,7 +108,7 @@ def makeSiteBdgFunction(candidatesite_file,readFileList,gtfile,coverageMethod,fi
             candidatesite_coverage = pd.read_csv(tmpdir+"/candidateSiteCoverage.bdg",sep='\t',header=None)
 
     elif file_type == "bw" or file_type == "bigWig" or file_type == "bigwig": 
-        print("Input epigenome signal is Bigwig.")
+        print("......Input epigenome signal is Bigwig.")
         candidatesite_coverage = pd.read_csv(candidatesite_file, sep="\t", header=None, names=["chr", "start", "end"])
         candidatesite_coverage['value'] = 0
         spmr_weight = 1
@@ -153,7 +153,7 @@ def makeSiteBdgFunction(candidatesite_file,readFileList,gtfile,coverageMethod,fi
         candidatesite_coverage = pd.read_csv(tmpdir+"/candidateSiteCoverage.bdg",sep='\t',header=None)
 
     elif file_type == "bedGraph" or file_type == "bedgraph":
-        print("Input epigenome signal is BedGraph.")
+        print("......Input epigenome signal is BedGraph.")
         if multiBAMmerge == 'mean':
             peakdf_values = []
             for read_signal_file in readFileList:
@@ -175,18 +175,17 @@ def makeSiteBdgFunction(candidatesite_file,readFileList,gtfile,coverageMethod,fi
             print("Error: multiBAMmerge can only be specified as [sum] or [mean]")
             exit()
 
-    print("Step3. If execute quantile normalization")
     if quantileref and not signaltype:
-        print("Please specify singaltype as DNase or H3K27ac")
+        print("......Please specify singaltype as DNase or H3K27ac")
         exit(1)
     elif quantileref and signaltype and quantile_method:
-        print("Using reference file to make quantiles of ChIP-seq signals")
+        print("......Using reference file to make quantiles of epigenome signals")
         refdf = pd.read_csv(quantileref, sep='\t')
         if separatepromoter:
-            print("separate promoter")
+            print("Separate promoter")
             candidatesite_coverage = quantile_normalize_separate(candidatesite_coverage,refdf,signaltype,method=quantile_method)
         else:
-            print("not separate promoter")
+            print("Not separate promoter")
             candidatesite_coverage = quantile_normalize_any(candidatesite_coverage,refdf,signaltype,method=quantile_method)
     else:
         candidatesite_coverage = candidatesite_coverage
@@ -265,7 +264,7 @@ def makeWeightFunction(weightType,peakPos,tssPos,rpDecayDistance=10000,fixedFunc
     elif weightType == 'gold_weight':
         """用户指定weight文件, 格式为 chr1,start1,end1,chr2,start2,end2,weight 七列"""
         if goldWeightDf is None:
-            print("Please give the goldWeightDf for gold_weight")
+            print("XXXXXXX Please give the goldWeightDf for gold_weight")
             exit(1)
         else:
             df = pd.read_csv(goldWeightDf, sep='\t', header=None)

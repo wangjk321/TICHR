@@ -46,7 +46,7 @@ def main():
         if args.hicfilepath:
             print("Start process HiC...")
             tichobj.proceessHiC(args.hicRes,args.hicDataType,args.hicNormType,juicertool=args.juicertool,
-                                threads=args.threads,further_normalize_type=args.further_normalize_type,)
+                                threads=args.threads,contactNorm=args.contactNorm,)
             print("Finish process HiC")
 
 
@@ -132,7 +132,7 @@ def main():
     processHiC_group.add_argument("--hicNormType",type=str,default="VC_SQRT",help="Normalization type for Hi-C data. Options: 'KR' (Knight-Ruiz), 'VC' (vanilla coverage), 'VC+S' (vanilla coverage + sparse), 'none' (no normalization).")
     processHiC_group.add_argument("--juicertool",type=str,default=None,help="Path to juicer_tools.jar file. Only for hicDataType=rawhic_dense. Give a user-difined juicertools jar file to process the hic files.")
     processHiC_group.add_argument("--threads",type=int,default=1,help="Number of threads to use for processing Hi-C data. Default is 1.")
-    processHiC_group.add_argument("--further_normalize_type",type=str,default=None,help="default: default normalize; abc: similar normalization to the ABC model; \
+    processHiC_group.add_argument("--contactNorm",type=str,default=None,help="default: default normalize; abc: similar normalization to the ABC model; \
                                   oe: observed/expected normalize; 0to1: divide by 95 quantile values; total: divide by the sum of all values, then muliply 1e7. ")
     processHiC_group.add_argument("--ifUseHiCRef",action='store_true',default=False,help="If set, uses the Hi-C reference file to calculate RgX.")
 

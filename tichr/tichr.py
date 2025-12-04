@@ -10,28 +10,53 @@ import multiprocessing
 from multiprocessing import Pool
 from joblib import Parallel, delayed
 from tqdm import tqdm
+import shutil
 
 from .preprocess_hic import *
 from .tichr_function import *
 from .highOrderStructure import *
 
 
+def is_file_path_list(readFileList):
+    if not isinstance(readFileList, list):
+        return False
+    
+    for item in readFileList:
+        if not isinstance(item, str):
+            return False
+        if not os.path.isfile(item):   # 必须是实际存在的文件
+            return False
+    
+    return True
+
 
 class Tichr:
-    def __init__(self,candidatesite,readFileList,gtfile,candidateGeneFile,refgene_file=None,
-                 ifTSSrange=500,peakToGeneMaxDistance=100000,
+    def __init__(self,candidatesite,readFileList,gtfile,candidateGeneFile,refGeneFile=None,
+                 ifTSSrange=500,S2Gmax=100000,
                  hicfilepath=None,readFileList2=None):
-        self.candidatesite = candidatesite
+        
+        print("***Checking file availablity")
+        if os.path.exists(candidatesite) or candidatesite in {"denovo_peak", "surronding_bin", "onlypromoter"}:
+            self.candidatesite = candidatesite
+        else:
+            raise ValueError(
+                f"Invalid candidatesite: {candidatesite}. "
+                "Must be an existing file path or one of denovo_peak, surronding_bin, onlypromoter.")
+
+        if not is_file_path_list(readFileList):
+            raise ValueError("readFileList should be a list of file path")
+
         self.readFileList = readFileList
         self.readFileList2 = readFileList2
+
         self.gtfile = gtfile
-        self.refgene_file = refgene_file
+        self.refgene_file = refGeneFile
         self.ifTSSrange = ifTSSrange
         self.candidateGeneDF = pd.read_csv(candidateGeneFile,sep='\t',header=None) #chr,start,end,symbol,geneid,strands 第五列实在不行换其他的也行
         self.candidateGeneFile = candidateGeneFile
         self.candidateGeneChrList = self.candidateGeneDF[0].unique()
         self.hicfilepath = hicfilepath
-        self.peakToGeneMaxDistance = peakToGeneMaxDistance
+        self.peakToGeneMaxDistance = S2Gmax
 
         self.nomhicdf = None
         self.hicRes = None
@@ -43,7 +68,7 @@ class Tichr:
         self.structureWeight = None
     
     def makeSiteBed(self,macs2species='hs',binResolution=100,
-                    blackregion=None,tmpdir=None,fixPeakWidth=False, only_promoter_area=100):
+                    blackregion=None,tmpdir=None,fixPeakWidth=True, only_promoter_area=100):
         self.macs2species = macs2species
         self.binResolution = binResolution
         if not tmpdir:
@@ -57,8 +82,9 @@ class Tichr:
                                                       fixPeakWidth=fixPeakWidth, only_promoter_area=only_promoter_area)
 
 
-    def makeSiteBdg(self, coverageMethod,spmr = False,quantileref=None,quantile_method=None,
-                    signaltype=None,separatepromoter=False,signal2type=None,multiBAMmerge='mean',file_type="bam"):
+    def makeSiteBdg(self, coverageMethod="coverageBed",spmr = False,multiBAMmerge='mean',file_type="bam",
+                    quantileref=None,quantile_method=None,
+                    separatepromoter=False,signaltype=None,signal2type=None,):
         #coverageMethod in ["macs2RP","coverageBed"]
         self.candidatesite_coverage = makeSiteBdgFunction(self.candidatesite_file,self.readFileList,self.gtfile,
                                                           coverageMethod,spmr = spmr,species=self.macs2species,
@@ -81,18 +107,18 @@ class Tichr:
     
 # hic 的标准化分为三个部分
 # 1. hicNormType: Juicer本身的KR、VC_SQRT等标准化方法
-# 2. further_normalize_type：标准化矩阵，如使用abc，还是oe方法，还是不进一步标准化
+# 2. contactNorm：标准化矩阵，如使用abc，还是oe方法，还是不进一步标准化
 # 3. ifUseHiCRef：是否处以以reference hic
 
     def proceessHiC(self,hicRes,hicDataType,hicNormType,juicertool=None,
-                    threads=8,further_normalize_type='abc'):
-        print("processing hic ...")
+                    threads=8,contactNorm='default'):
+        print("***Processing hic ...")
         self.hicRes=hicRes
         self.hicProcessedDataType = hicDataType
-        self.further_normalize_type = further_normalize_type
+        self.contactNorm = contactNorm
         self.nomhicdf = gethicfile(self.hicfilepath,hicRes,hicDataType,self.candidateGeneChrList,
                               hicnorm=hicNormType,gt=self.gtfile,juicertool=juicertool,threads=threads,
-                              further_normalize_type=further_normalize_type)        
+                              contactNorm=contactNorm)        
     
     def weightStructure(self,structureType,structureFile,structureWeight):
         
@@ -165,7 +191,7 @@ class Tichr:
 
         #print(np.nansum(geneiPeakxWeightList))
 
-        if weightType=="hic" and self.further_normalize_type=='abc':
+        if weightType=="hic" and self.contactNorm=='abc':
             #qc gene
             badgene_threshold = 0.01 #排除没有链接的基因
             if np.nansum(geneiPeakxWeightList) < badgene_threshold:
@@ -245,7 +271,7 @@ class Tichr:
 
         if threads <= 1:
             # Wrap the loop with tqdm to show a progress bar
-            for i in tqdm(range(numOfGene), desc="Processing genes", unit="gene"):
+            for i in tqdm(range(numOfGene), desc="***Processing genes", unit="gene"):
                 geneiWEscoreSum, genei_Rgx_df = self.computeGenei(
                     i, weightType, rpDecayDistance=halfDistance, 
                     fixedFunctionType=fixedFunctionType, given_gamma=given_gamma, 
@@ -283,12 +309,26 @@ class Tichr:
         self.RgDf = RgDf
 
     
-    def clean(self):
-        self.candidatesite_coverage = None
-        self.nomhicdf = None
-        self.RgxDf = None
-        self.RgDf = None
+    def clean(self,onlytmp=False):
+        if os.path.exists(self.tmpdir):
+                shutil.rmtree(self.tmpdir)
+
+        if onlytmp:
+            print("clean tmp")
+        else:
+            print("clean all")
+            self.candidatesite_coverage = None
+            self.nomhicdf = None
+            self.RgxDf = None
+            self.RgDf = None
+
         
+        
+    def save(self,name="output"):
+        print("***Save RgX and Rg to tsv tables.")
+        self.RgxDf.to_csv(name+"_RgxDf.tsv.gz",header=None,sep="\t",index=None,compression="gzip")
+        self.RgDf.to_csv(name+"_RgDf.tsv.gz",header=None,sep="\t",index=None,compression="gzip")
+
     
     
 

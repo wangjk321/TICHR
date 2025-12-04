@@ -15,7 +15,7 @@ awk -v OFS="\t" \
      $refgene_file |sortBed > $outdir/refgene_tss.temp
 
 # bam to bedGraph
-if [ "$coverageMethod" == "macs2RP" ]
+if [ "$coverageMethod" == "pileup" ]
 then
     macs2 callpeak -t $bamfile -f BAM \
         --SPMR -B -q 0.01 --keep-dup 1 --extsize 146 \

@@ -103,15 +103,15 @@ def normDF_sparse(records,hicres,chri_len):
     return(df)
 
 
-def paral_sparse(hicfilepath,chri,hicnorm,hicres,gtdf,further_normalize_type='abc'):
-    chri_len = int(gtdf[gtdf[0]==chri][1])
+def paral_sparse(hicfilepath,chri,hicnorm,hicres,gtdf,contactNorm='abc'):
+    chri_len = int(gtdf[gtdf[0]==chri][1].iloc[0])
     hic = hicstraw.HiCFile(hicfilepath)
 
     try:
         mtobt= hic.getMatrixZoomData(chri, chri, "observed", hicnorm, "BP", hicres)
         mt = mtobt.getRecords(0,chri_len,0,chri_len)
     except:
-        print("try to use 1,2... instead of chr1,chr2...  ")
+        print("Try to use 1,2... instead of chr1,chr2...  ")
         chri_num = chri.replace('chr', '')
         mtobt= hic.getMatrixZoomData(chri_num, chri_num, "observed", hicnorm, "BP", hicres)
         mt = mtobt.getRecords(0,chri_len,0,chri_len)
@@ -123,33 +123,35 @@ def paral_sparse(hicfilepath,chri,hicnorm,hicres,gtdf,further_normalize_type='ab
         mt = mtobt.getRecords(0,chri_len,0,chri_len)
     
     records = [[r.binX, r.binY, r.counts] for r in mt]
-    if further_normalize_type == 'abc':
+    if contactNorm == 'abc':
         nomhicchri = normDF_sparse(records,hicres,chri_len)
-    elif further_normalize_type == 'oe':
+    elif contactNorm == 'oe':
         nomhicchri = oeNormalizeSparse(records,outType="OE")
-    elif further_normalize_type == 'no_further':
+    elif contactNorm == 'default':
         nomhicchri = noFurtherNormalizeSparse(records)
-    elif further_normalize_type == '0to1': #如果把Hi-C根据最大值或总和标准化的前提是不同样本之间总的接触强度是一个恒定值，可用去区分局部基因组位点之间的差异。
+    elif contactNorm == '0to1': #如果把Hi-C根据最大值或总和标准化的前提是不同样本之间总的接触强度是一个恒定值，可用去区分局部基因组位点之间的差异。
                                             # 但如果多个样本本身的contact总和不是恒定的，比如一个样本完全没有接触，另一个样本有很多接触，这样标准化其实不够公平。
         nomhicchri = scale0to1Sparse(records)
-    elif further_normalize_type == "total":
+    elif contactNorm == "total":
         nomhicchri = totalNormSparse(records)
     else:
-        print("please use one of ['abc','oe','no_further','0to1','total']")
+        print("please use one of ['abc','oe','default','0to1','total']")
 
     return chri,nomhicchri
 
 def gethicfile(hicfilepath,hicres,hictype,genechrlist,
-               hicnorm="SCALE",gt=None,juicertool=None,threads=8,further_normalize_type='abc'):
+               hicnorm="SCALE",gt=None,juicertool=None,threads=8,contactNorm='abc'):
     
     if hictype=="matrix_dense":
         for chri in genechrlist:
             nomhicdf[chri] = np.array(normalizehic_dense(hicfilepath))
     elif hictype == 'rawhic_sparse':
+        print(f"......Using {threads} threads to process Hi-C. More threads require larger memory.")
+
         gtdf = pd.read_csv(gt,sep="\t",header=None)
         with concurrent.futures.ProcessPoolExecutor(max_workers=threads) as executor:
             nomhicdf={}
-            futures = {executor.submit(paral_sparse,hicfilepath,chri,hicnorm,hicres,gtdf,further_normalize_type): 
+            futures = {executor.submit(paral_sparse,hicfilepath,chri,hicnorm,hicres,gtdf,contactNorm): 
                     chri for chri in genechrlist}
             for future in concurrent.futures.as_completed(futures):
                 chri, nomhicchri = future.result()
