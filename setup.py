@@ -2,13 +2,10 @@ from setuptools import setup, find_packages
 
 setup(
     name='tichr',
-    version='0.1.4',
+    version='0.1.5',
     author='Jiankang Wang',
     author_email='wangjk321@gmail.com',
     description='TICHR: A computational tool designed to investigate transcriptional regulation',
-    # long_description=open('README.md', encoding='utf-8').read(),
-    # long_description_content_type='text/markdown',
-    # url='https://github.com/wangjk321/TICHR', 
     packages=find_packages(),
     python_requires='>=3.6',
     install_requires=[
@@ -23,7 +20,7 @@ setup(
     "statsmodels",
     "pyranges",
     "tqdm",
-    # "rpy2",
+    "rpy2",
     # "joblib",
     "adjustText",
     "umap-learn",
@@ -31,7 +28,6 @@ setup(
     # "collections",
     # "concurrent",
     # "functools",
-    #这几个好像是python自带的
 ],
     entry_points={
         'console_scripts': [
