@@ -9,23 +9,26 @@ from .context import *
 from .highOrderStructure import *
 
 
-def matchgold(rgxfile,golddf,outname,goldcol,percent=False,withhead=False,returnDF=False,predGeneCol=10,predScoreCol=12):
+def matchgold(rgxfile,golddf,outname,goldcol,percent=False,goldHead=False,returnDF=False,predGeneCol=10,predScoreCol=12):
     codepath = os.path.dirname(os.path.realpath(__file__))
-    print(codepath)
+    #print(codepath)
 
     if percent:
+        #print("bash "+codepath+"/supportcode/overlap_predict_true.sh "+ golddf +" "+
+        #          rgxfile+ " "+str(goldcol)+" 10 13 "+outname+" "+str(withhead))
+        
         os.system("bash "+codepath+"/supportcode/overlap_predict_true.sh "+ golddf +" "+
-                  rgxfile+ " "+str(goldcol)+" 10 13 "+outname+" "+str(withhead))
+                  rgxfile+ " "+str(goldcol)+" 10 13 "+outname+" "+str(goldHead))
     else:
-        print("bash "+codepath+"/supportcode/overlap_predict_true.sh "+ golddf +" "+
-                  rgxfile+ " "+str(goldcol)+" "+str(predGeneCol)+ " " +str(predScoreCol)+ " " +outname+" "+str(withhead))
+        #print("bash "+codepath+"/supportcode/overlap_predict_true.sh "+ golddf +" "+
+        #          rgxfile+ " "+str(goldcol)+" "+str(predGeneCol)+ " " +str(predScoreCol)+ " " +outname+" "+str(withhead))
 
         os.system("bash "+codepath+"/supportcode/overlap_predict_true.sh "+ golddf +" "+
-                  rgxfile+ " "+str(goldcol)+" "+str(predGeneCol)+ " " +str(predScoreCol)+ " " +outname+" "+str(withhead))
+                  rgxfile+ " "+str(goldcol)+" "+str(predGeneCol)+ " " +str(predScoreCol)+ " " +outname+" "+str(goldHead))
         
     
     if returnDF:
-        if not withhead:
+        if not goldHead:
             matched = pd.read_csv(outname,sep="\t",header=None)
         else:
             matched = pd.read_csv(outname,sep="\t")
@@ -42,8 +45,8 @@ def plotMultiPrc(indir,matchcol,truecol,outname="prc.pdf",dataset="K562bengiCRIS
             matched = pd.read_csv(indir+name+".tsv",sep="\t",header=None)
         else:
             matched = pd.read_csv(indir+name+".tsv",sep="\t")
-        score = matched[matchcol]
-        truelabel = matched[truecol] == True
+        score = matched.iloc[:,matchcol]
+        truelabel = matched.iloc[:,truecol] == True
         pltoneprc(truelabel,score,name,cols[i])
         i = i +1
         
@@ -81,24 +84,29 @@ def findStrucWeight(rgxfile_raw,rgfile_raw,golddf,goldcol,outdir,
                 typelist=typelist,outname="find_structure_weight.pdf")
 
 
-def allcombination(rgxfile_raw,rgfile_raw,golddf,goldcol,outdir,tpmfile,
+def allcombination(rgxfile_raw,rgfile_raw,outdir,golddf,goldcol,tpmfile,
                    structureTypeList,structureFileList,structureWeightList,
-                   tmpcolrep=[2+1,3+1,],ignorehead=True,tmpgeneID=1+1,
+                   tpmCols=[2+1,3+1,],tpmHead=True,tpmGeneID=1+1,
                     matchcol=12+1,truecol=11+1,onlyPlot=False,goldwithhead=False,ranktype="diffrank",
                     typelist=["noadj","adjRaw","adjRank","adjStruc","adjRankRaw",
-                          "adjRawStruc","adjStrucRank","adjStrucRankRaw"]):
+                          "adjRawStruc","adjStrucRank","adjStrucRankRaw"], RgXhead=False):
+    
+    outdir=os.path.join(outdir, "")
     # 所有列数为真实列数，不是python里面的0-based
     if not os.path.exists(outdir): os.makedirs(outdir)
 
+    print(outdir)
     if not onlyPlot:
-        print("Try raw adjustment")
+        print("***Try raw adjustment")
+        print(outdir+"noadj.tsv")
+        
         matchgold(rgxfile_raw,golddf,outdir+"noadj.tsv",goldcol,percent=True,withhead=goldwithhead)
         matchgold(rgxfile_raw,golddf,outdir+"adjRaw.tsv",goldcol,percent=False,withhead=goldwithhead)
 
-        print("Try rank adjustment")
+        print("***Try TPM rank adjustment")
         rg_adjrank, rgx_adjrank= adjtpm(rgxfile_raw,tpmfile,rgfile=rgfile_raw,rggeneID=4,rgxgeneID=9,
                                        rgxvalue=11,rgxratio=12,
-                                       tmpcolrep=np.array(tmpcolrep)-1,ignorehead=ignorehead,tmpgeneID=tmpgeneID-1,
+                                       tmpcolrep=np.array(tpmCols)-1,ignorehead=tpmHead,tpmGeneID=tpmGeneID-1,
                                        ranktype=ranktype)
         rgx_adjrank.to_csv(outdir+"adjRank_beforematch.tsv",sep="\t",header=None,index=False)
         matchgold(outdir+"adjRank_beforematch.tsv",golddf,outdir+"adjRank.tsv",
@@ -106,11 +114,11 @@ def allcombination(rgxfile_raw,rgfile_raw,golddf,goldcol,outdir,tpmfile,
         matchgold(outdir+"adjRank_beforematch.tsv",golddf,outdir+"adjRankRaw.tsv",
                   goldcol,percent=False,withhead=goldwithhead)
 
-        print("Try structure adjustment")
+        print("***Try structure adjustment")
         rg_adjstruc, rgx_adjstruc = adjStructure(rgxfile_raw,
                                                  structureFileList, structureTypeList, structureWeightList,
                                                 rgfile=rgfile_raw,rggeneID=4,rgvalue=6,
-                                                 cpumode="multi",withcolname=True)
+                                                 cpumode="multi",withcolname=RgXhead)
 
         rgx_adjstruc.to_csv(outdir+"adjStruc_beforematch.tsv",sep="\t",header=None,index=False)
 
@@ -119,11 +127,11 @@ def allcombination(rgxfile_raw,rgfile_raw,golddf,goldcol,outdir,tpmfile,
         matchgold(outdir+"adjStruc_beforematch.tsv",golddf,outdir+"adjRawStruc.tsv",
               goldcol,percent=False,withhead=goldwithhead)
 
-        print("Try all adjustment")
+        print("***Try all adjustment")
         rg_adjStrucRank, rgx_adjStrucRank = adjtpm(outdir+"adjStruc_beforematch.tsv",tpmfile,
                                     rgfile=rgfile_raw,rggeneID=4,rgxgeneID=9,ranktype=ranktype,
                                     rgxvalue=11,rgxratio=12,
-                                    tmpcolrep=np.array(tmpcolrep)-1,ignorehead=ignorehead,tmpgeneID=tmpgeneID-1)
+                                    tmpcolrep=np.array(tpmCols)-1,ignorehead=tpmHead,tpmGeneID=tpmGeneID-1)
         rgx_adjStrucRank.to_csv(outdir+"adjStrucRank_beforematch.tsv",sep="\t",header=None,index=False)
 
         matchgold(outdir+"adjStrucRank_beforematch.tsv",golddf,outdir+"adjStrucRank.tsv",
@@ -134,6 +142,7 @@ def allcombination(rgxfile_raw,rgfile_raw,golddf,goldcol,outdir,tpmfile,
 
     plotMultiPrc(outdir,matchcol=matchcol-1,truecol=truecol-1,dataset=outdir,matchedwithhead=goldwithhead,
                 typelist=typelist,outname="all_combination.pdf")
+
 
 
 
@@ -154,11 +163,11 @@ def cut_distance(df,rgdf,maxdis=100000): #df是RgxDf
 def adjtpm(rgxfile,tpmfile,
            rgfile=None,rgvalue=6,rggeneID=4,
            rgxgeneID=9,rgxvalue=11,rgxratio=12,
-           tmpgeneID=1,tmpcolrep=[2,],ignorehead=False,
+           tpmGeneID=1,tmpcolrep=[2,],ignorehead=False,
            ranktype="diffrank"):
     tpmdf=pd.read_csv(tpmfile,sep="\t")
     tpmdf["meanTPM"] = tpmdf.iloc[:,tmpcolrep].mean(axis=1)
-    geneTPMdict = tpmdf.set_index(tpmdf.columns[tmpgeneID])["meanTPM"].to_dict()
+    geneTPMdict = tpmdf.set_index(tpmdf.columns[tpmGeneID])["meanTPM"].to_dict()
     
     if ignorehead:
         rgxraw = pd.read_csv(rgxfile,sep="\t",header=None,skiprows=1)
@@ -188,7 +197,7 @@ def adjtpm(rgxfile,tpmfile,
         rgadj = rgxraw.groupby(rgxgeneID)[rgxvalue].sum()
         rgdf[rgvalue] = rgadj
 
-    print("finish the adjustment for Rg and RgX")
+    print("......Finish the adjustment for Rg and RgX")
     return(rgdf,rgxraw)
 
 
@@ -200,22 +209,23 @@ def compute_structure_weight(args):
     return weightStructureFunc(structureType, structureDF, structureWeight, peakPos, tssPos, chrnum)
 
 def adjStructure(rgxfile,structureFile, structureType, structureWeight,ignorehead=False,
-                 rgfile=None,rggeneID=4,rgvalue=6,cpumode="multi",outname="structureAdjusted",withcolname=True):
+                 rgfile=None,rggeneID=4,rgvalue=6,cpumode="multi",outname="structureAdjusted",
+                 withcolname=True):
     global structureDF
     
     if all(isinstance(var, list) for var in [structureFile, structureType, structureWeight]):
-        print("structureDF, structureType and structureWeight are all list")
+        print("......strucFile, strucType and strucWeight are all list")
         structureDF = []
         for file in structureFile:
             df = pd.read_csv(file, header=None, sep="\t")
             df[0] = pd.Categorical(df[0]) 
             structureDF.append(df)
     elif all(isinstance(var, str) for var in [structureFile, structureType]):
-        print("structureDF, structureType and structureWeight are all str")
+        print("......strucFile, strucType and strucWeight are all str")
         structureDF = pd.read_csv(structureFile,header=None,sep="\t")
         structureDF[0] = pd.Categorical(structureDF[0]) #make chromosome name to category
     else:
-        print("structureDF, structureType and structureWeight are not consistent style")
+        print("......strucFile, strucType and strucWeight are not consistent style")
         exit(1)
     
     rgxdf=pd.read_csv(rgxfile,sep="\t")
@@ -265,9 +275,13 @@ def adjStructure(rgxfile,structureFile, structureType, structureWeight,ignorehea
 
 def diffrentThresh(rgxfile_raw,rgfile_raw,golddf,goldcol,outdir,tpmfile,ignoreRgxhead=True,
                    threshType="tpm",threshList=[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9],
-                   tmpcolrep=[2+1,3+1,],rggeneID=4+1,tmpgeneID=1+1,rgxgeneID=9+1,plotcols=None,rgvaluecol=6+1,
-                   matchcol=12+1,truecol=11+1,onlyPlot=False,goldwithhead=False):
+                   tpmCols=[2+1,3+1,],tpmGeneID=1+1,rgGeneID=4+1,rgxGeneID=9+1,rgvaluecol=6+1,
+                   plotcols=None,
+                   matchcol=12+1,goldLabelCol=11+1,onlyPlot=False,goldHead=False):
     
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+
     if ignoreRgxhead:
         rgxdf=pd.read_csv(rgxfile_raw,sep="\t",header=None,skiprows=1)
     else:
@@ -276,13 +290,13 @@ def diffrentThresh(rgxfile_raw,rgfile_raw,golddf,goldcol,outdir,tpmfile,ignoreRg
     rgdf = pd.read_csv(rgfile_raw,sep="\t",header=None)
     tpmdf = pd.read_csv(tpmfile,sep="\t")
     
-    rgdfgene = rgdf[rggeneID-1].apply(lambda x: x.split('.')[0])
+    rgdfgene = rgdf[rgGeneID-1].apply(lambda x: x.split('.')[0])
     rgdf.index = rgdfgene
-    tpmdfgene = tpmdf.iloc[:,tmpgeneID-1]
+    tpmdfgene = tpmdf.iloc[:,tpmGeneID-1]
     tpmdf.index = tpmdfgene
     commongene = np.array(set(tpmdfgene) & set(rgdfgene))
     rgdffinal = rgdf.loc[commongene]    
-    rgdffinal["TPM"] = tpmdf.loc[commongene].iloc[:,np.array(tmpcolrep)-1].mean(axis=1)
+    rgdffinal["TPM"] = tpmdf.loc[commongene].iloc[:,np.array(tpmCols)-1].mean(axis=1)
     
     namelist=[]
     for th in threshList:
@@ -294,7 +308,7 @@ def diffrentThresh(rgxfile_raw,rgfile_raw,golddf,goldcol,outdir,tpmfile,ignoreRg
             if not onlyPlot:
                 rgdfbool = rgdffinal["TPM"] > rgdffinal["TPM"].quantile(th)
                 selectedgene = list(rgdfbool[rgdfbool].index)
-                rgxgene = rgxdf.iloc[:,rgxgeneID-1].apply(lambda x: x.split('.')[0])
+                rgxgene = rgxdf.iloc[:,rgxGeneID-1].apply(lambda x: x.split('.')[0])
                 rgxdf_select = rgxdf[rgxgene.isin(selectedgene)]
         elif threshType=="sumrank":
             definedcol = [mcolors.to_hex(plt.cm.get_cmap('inferno_r')(i)) for i in np.linspace(0, 1, 15)]
@@ -305,7 +319,7 @@ def diffrentThresh(rgxfile_raw,rgfile_raw,golddf,goldcol,outdir,tpmfile,ignoreRg
                 sumrank = makesumrank(rgdffinal["TPM"],rgdffinal[rgvaluecol-1])
                 rgdfbool = sumrank > sumrank.quantile(th)
                 selectedgene = list(rgdfbool[rgdfbool].index)
-                rgxgene = rgxdf.iloc[:,rgxgeneID-1].apply(lambda x: x.split('.')[0])
+                rgxgene = rgxdf.iloc[:,rgxGeneID-1].apply(lambda x: x.split('.')[0])
                 rgxdf_select = rgxdf[rgxgene.isin(selectedgene)]
         elif threshType=="distance":
             definedcol = [mcolors.to_hex(plt.cm.get_cmap('Spectral_r')(i)) for i in np.linspace(0, 1, 20)]
@@ -318,18 +332,18 @@ def diffrentThresh(rgxfile_raw,rgfile_raw,golddf,goldcol,outdir,tpmfile,ignoreRg
         if not onlyPlot:
             rgxdf_select.to_csv(outdir+name+".selectRgx.tsv",sep="\t",header=None,index=False)
             matchgold(outdir+name+".selectRgx.tsv",golddf,
-                      outdir+name+".tsv",goldcol,percent=False,withhead=goldwithhead)
+                      outdir+name+".tsv",goldcol,percent=False,goldHead=goldHead)
     if plotcols:
         finalcolor=plotcols
     else:
         finalcolor=definedcol
 
-    plotMultiPrc(outdir, matchcol=matchcol-1,truecol=truecol-1,dataset=outdir,cols=finalcolor,
-            typelist=namelist,matchedwithhead=goldwithhead,outname=f"diffrentThresh_{threshType}.pdf")
+    plotMultiPrc(outdir, matchcol=matchcol-1,truecol=goldLabelCol-1,dataset=outdir,cols=finalcolor,
+            typelist=namelist,matchedwithhead=goldHead,outname=f"diffrentThresh_{threshType}.pdf")
     
 
 
-def plotdensity(rgxfile_raw,indir,matchedwithhead = False,matchcol=12,truecol=11):
+def plotdensity(rgxfile_raw,indir,matchedwithhead = False,matchcol=12,truecol=11,plotMore=False):
     
     rgxdf=pd.read_csv(rgxfile_raw,sep="\t",header=None,skiprows=1)
     
@@ -356,96 +370,119 @@ def plotdensity(rgxfile_raw,indir,matchedwithhead = False,matchcol=12,truecol=11
     # plt.tight_layout()
     plt.show()
     
-    typelist_raw=["adjRaw","adjRankRaw","adjRawStruc","adjStrucRankRaw"]
-    plt.figure(figsize=(3,3))
-    for name in typelist_raw:
-        if not matchedwithhead:
-            matched = pd.read_csv(indir+name+".tsv",sep="\t",header=None)
-        else:
-            matched = pd.read_csv(indir+name+".tsv",sep="\t")
-    
-        rgxvalue = matched[matchcol-1]
-        truelabel = matched[truecol-1] == True
-        normRgx = np.log2(rgxvalue/rgxvalue.mean()+1)
+    if plotMore:
+        typelist_raw=["adjRaw","adjRankRaw","adjRawStruc","adjStrucRankRaw"]
+        plt.figure(figsize=(3,3))
+        for name in typelist_raw:
+            if not matchedwithhead:
+                matched = pd.read_csv(indir+name+".tsv",sep="\t",header=None)
+            else:
+                matched = pd.read_csv(indir+name+".tsv",sep="\t")
         
-        precision, recall, thresholds = precision_recall_curve(truelabel,normRgx)
-        
-        recall_cutoffs = np.arange(0.1, 1.0, 0.1) 
-        print(name + " 不同 recall 水平对应的阈值：")
-        
-        recall_threshold_list = []
-        for target_recall in recall_cutoffs:
-            idx = np.argmin(np.abs(recall[1:] - target_recall))  # recall[1:] 对应 thresholds
-            corresponding_threshold = round(thresholds[idx],4)
-            recall_threshold_list.append(corresponding_threshold)
-        print(recall_cutoffs)
-        print(recall_threshold_list)
+            rgxvalue = matched[matchcol-1]
+            truelabel = matched[truecol-1] == True
+            normRgx = np.log2(rgxvalue/rgxvalue.mean()+1)
+            
+            precision, recall, thresholds = precision_recall_curve(truelabel,normRgx)
+            
+            recall_cutoffs = np.arange(0.1, 1.0, 0.1) 
+            print(name + " 不同 recall 水平对应的阈值：")
+            
+            recall_threshold_list = []
+            for target_recall in recall_cutoffs:
+                idx = np.argmin(np.abs(recall[1:] - target_recall))  # recall[1:] 对应 thresholds
+                corresponding_threshold = round(thresholds[idx],4)
+                recall_threshold_list.append(corresponding_threshold)
+            print(recall_cutoffs)
+            print(recall_threshold_list)
 
-        sns.kdeplot(normRgx,label=name)
-    plt.xlabel("Rgx (raw)", fontsize=10)
-    plt.title(indir, fontsize=11)
-    plt.legend()
-    plt.show()
-    
-    typelist_percent=["noadj","adjRank","adjStruc","adjStrucRank",]
-    plt.figure(figsize=(3,3))
-    for name in typelist_percent:
-        if not matchedwithhead:
-            matched = pd.read_csv(indir+name+".tsv",sep="\t",header=None)
-        else:
-            matched = pd.read_csv(indir+name+".tsv",sep="\t")
+            sns.kdeplot(normRgx,label=name)
+        plt.xlabel("Rgx (raw)", fontsize=10)
+        plt.title(indir, fontsize=11)
+        plt.legend()
+        plt.show()
         
-        rgxvalue = matched[matchcol-1]
-        sns.kdeplot(rgxvalue[rgxvalue>0],label=name)
-    plt.xlabel("Rgx (percent)", fontsize=10)
-    plt.title(indir, fontsize=11)
-    plt.legend()
-    plt.show()
+        typelist_percent=["noadj","adjRank","adjStruc","adjStrucRank",]
+        plt.figure(figsize=(3,3))
+        for name in typelist_percent:
+            if not matchedwithhead:
+                matched = pd.read_csv(indir+name+".tsv",sep="\t",header=None)
+            else:
+                matched = pd.read_csv(indir+name+".tsv",sep="\t")
+            
+            rgxvalue = matched[matchcol-1]
+            sns.kdeplot(rgxvalue[rgxvalue>0],label=name)
+        plt.xlabel("Rgx (percent)", fontsize=10)
+        plt.title(indir, fontsize=11)
+        plt.legend()
+        plt.show()
 
 
-def adjvalue(rgxfile_raw,rgfile_raw,outdir,tpmfile,
-                   structureTypeList,structureFileList,structureWeightList,
-                   tmpcolrep=[2+1,3+1,],ignorehead=True,tmpgeneID=1+1,ranktype="diffrank",):
+def adjS2G(rgxfile_raw,rgfile_raw,tpmfile,
+        structureTypeList=None,structureFileList=None,structureWeightList=None,
+        tpmCols=[2+1,3+1,],tpmHead=True,tpmGeneID=1+1,
+        rankType="diffrank",outdir="adjS2Gout",RgXhead=False):
     
     if not os.path.exists(outdir):
         os.makedirs(outdir)
+    print("***Performing adjRaw")
 
-    # Step 1: Adjust raw signal by structure
-    rg_adjrawstruc, rgx_adjrawstruc = adjStructure(
-        rgxfile_raw,
-        structureFileList,
-        structureTypeList,
-        structureWeightList,
-        rgfile=rgfile_raw,
-        rggeneID=4,  # fixed 1-based column for gene ID
-        rgvalue=6,   # fixed 1-based column for raw Rg signal
-        ignorehead=ignorehead,
-        cpumode="multi",
-        withcolname=True
-    )
+    if structureTypeList is not None:
+        print("***Performing adjStruc")
+        # Step 1: Adjust raw signal by structure
+        rg_adjrawstruc, rgx_adjrawstruc = adjStructure(
+            rgxfile_raw,
+            structureFileList,
+            structureTypeList,
+            structureWeightList,
+            rgfile=rgfile_raw,
+            rggeneID=4,  # fixed 1-based column for gene ID
+            rgvalue=6,   # fixed 1-based column for raw Rg signal
+            ignorehead=tpmHead,
+            cpumode="multi",
+            withcolname=RgXhead
+        )
 
-    # Save adjusted raw structure signals
-    rg_adjrawstruc.to_csv(outdir + "adjrawstruc.rg.tsv", sep="\t", header=None, index=False)
-    rgx_adjrawstruc.to_csv(outdir + "adjrawstruc.rgx.tsv", sep="\t", header=None, index=False)
+        # Save adjusted raw structure signals
+        rg_adjrawstruc.to_csv(outdir + "adjrawstruc.rg.tsv", sep="\t", header=None, index=False)
+        rgx_adjrawstruc.to_csv(outdir + "adjrawstruc.rgx.tsv", sep="\t", header=None, index=False)
 
-    # Step 2: Adjust by TPM signal
-    rg_adjall, rgx_adjall = adjtpm(
-        outdir + "adjrawstruc.rgx.tsv",
-        tpmfile,
-        rgfile=outdir + "adjrawstruc.rg.tsv",
-        rggeneID=4,
-        rgxgeneID=9,
-        ranktype=ranktype,
-        rgxvalue=11,
-        rgxratio=12,
-        tmpcolrep=np.array(tmpcolrep) - 1,
-        ignorehead=ignorehead,
-        tmpgeneID=tmpgeneID - 1
-    )
+        print("***Performing adjrank")
+        # Step 2: Adjust by TPM signal
+        rg_adjall, rgx_adjall = adjtpm(
+            outdir + "adjrawstruc.rgx.tsv",
+            tpmfile,
+            rgfile=outdir + "adjrawstruc.rg.tsv",
+            rggeneID=4,
+            rgxgeneID=9,
+            ranktype=rankType,
+            rgxvalue=11,
+            rgxratio=12,
+            tmpcolrep=np.array(tpmCols) - 1,
+            ignorehead=tpmHead,
+            tpmGeneID=tpmGeneID - 1
+        )
+    else:
+        print("***Performing adjrank")
+        # Step 2: Adjust by TPM signal
+        rg_adjall, rgx_adjall = adjtpm(
+            rgxfile_raw,
+            tpmfile,
+            rgfile=rgfile_raw,
+            rggeneID=4,
+            rgxgeneID=9,
+            ranktype=rankType,
+            rgxvalue=11,
+            rgxratio=12,
+            tmpcolrep=np.array(tpmCols) - 1,
+            ignorehead=tpmHead,
+            tpmGeneID=tpmGeneID - 1
+        )
 
+    print("***Saving adjusted output")
     # Save final adjusted signals
-    rg_adjall.to_csv(outdir + "adjall.rg.tsv", sep="\t", header=None, index=False)
-    rgx_adjall.to_csv(outdir + "adjall.rgx.tsv", sep="\t", header=None, index=False)
+    rg_adjall.to_csv(outdir + "adjAll.rg.tsv", sep="\t", header=None, index=False)
+    rgx_adjall.to_csv(outdir + "adjAll.rgx.tsv", sep="\t", header=None, index=False)
     
     # Clean up intermediate files
     try:
@@ -453,3 +490,78 @@ def adjvalue(rgxfile_raw,rgfile_raw,outdir,tpmfile,
         os.remove(outdir + "adjrawstruc.rgx.tsv")
     except FileNotFoundError:
         print("Some intermediate files were not found for deletion.")
+
+
+
+class postTichr:
+    def __init__(self, df, rgdf, header=False):
+        if header:
+            self.df = pd.read_csv(df, sep="\t", header=0)
+            self.rgdf = pd.read_csv(rgdf, sep="\t", header=0)
+        else:
+            self.df = pd.read_csv(df, sep="\t", header=None)
+            self.rgdf = pd.read_csv(rgdf, sep="\t", header=None)
+
+        self.rawdf = self.df
+        self.rawrgdf = self.rgdf
+        self.header = header
+
+    def cut_distance(self, maxdis=100000):
+        print("***Only S2G links distance < "+ str(maxdis) +" are retained.")
+        df = self.df.copy()
+        rgdf = self.rgdf.copy()
+
+        peakpos = (df.iloc[:, 1] + df.iloc[:, 2]) / 2
+        tsspos = np.where(df.iloc[:, 8] == "+", df.iloc[:, 6], df.iloc[:, 7])
+        peak2tss = np.abs(peakpos - tsspos)
+
+        cutdf = df.loc[peak2tss < maxdis].copy()
+        cutdf.reset_index(drop=True, inplace=True)
+
+        rgdf = rgdf.set_index(rgdf.columns[3], drop=False)
+        rg_sum = cutdf.groupby(cutdf.columns[4])[cutdf.columns[11]].sum()
+        rgdf[rgdf.columns[6]] = rg_sum
+
+        cutrgdf = rgdf.dropna(subset=[rgdf.columns[6]]).copy()
+        cutrgdf.reset_index(drop=True, inplace=True)
+
+        self.df = cutdf
+        self.rgdf = cutrgdf
+
+    def cut_score(self, minRaw=0.01, minRatio=0.01):
+        print(f"***Filtering S2G links: column11 > {minRaw} percentile and column12 > {minRatio}")
+
+        df = self.df.copy()
+        rgdf = self.rgdf.copy()
+
+        raw_thresh = np.percentile(df.iloc[:, 11], minRaw * 100)
+
+        cutdf = df.loc[(df.iloc[:, 11] > raw_thresh) & (df.iloc[:, 12] > minRatio)].copy()
+        cutdf.reset_index(drop=True, inplace=True)
+
+        rgdf = rgdf.set_index(rgdf.columns[3], drop=False)
+        rg_sum = cutdf.groupby(cutdf.columns[4])[cutdf.columns[11]].sum()
+        rgdf[rgdf.columns[6]] = rg_sum
+
+        cutrgdf = rgdf.dropna(subset=[rgdf.columns[6]]).copy()
+        cutrgdf.reset_index(drop=True, inplace=True)
+
+        self.df = cutdf
+        self.rgdf = cutrgdf
+
+    def norm(self, new_colname="normRgX", outname="test"):
+        df = self.df.copy()
+        df[new_colname] = np.log2(df.iloc[:, 11] / df.iloc[:, 11].mean() + 1)
+        self.normdf = df
+        print(f"***{new_colname} generated.")
+        print(df.head())
+        df.to_csv(outname + "_normRgX.tsv.gz", sep="\t", index=False, header=False, compression="gzip")
+        print(f"***Saved to {outname}_normRgX.tsv.gz")
+
+    def save(self, outname="output", header=None):
+        if header is None:
+            header = self.header
+        print("***Save RgX and Rg to tsv tables.")
+        self.df.to_csv(outname+"_RgxDf.tsv.gz", header=header, sep="\t", index=False, compression="gzip")
+        self.rgdf.to_csv(outname+"_RgDf.tsv.gz", header=header, sep="\t", index=False, compression="gzip")
+        print("......Saved to "+outname+"_RgxDf.tsv.gz and "+outname+"_RgDf.tsv.gz")

@@ -13,6 +13,36 @@ import concurrent.futures
 
 from .dumphic import *
 
+import numpy as np
+import pandas as pd
+
+def dense_to_long(mat, resolution=50000):
+    """
+    Convert symmetric Hi-C matrix to long-format dataframe
+    using only the upper triangle (i <= j) to avoid duplicates.
+    The first column (posXtoPosY) is set as index without a name.
+    """
+    rows = []
+    n = mat.shape[0]
+
+    for i in range(n):
+        for j in range(i, n):  # 只遍历上三角
+            c = mat[i, j]
+            if c == 0 or np.isnan(c):
+                continue
+
+            posX = i * resolution
+            posY = j * resolution
+            idx = f"{posX}to{posY}"  # 用作 index
+
+            rows.append([idx, posX, posY, c])
+
+    df = pd.DataFrame(rows, columns=["posXtoPosY", "posX", "posY", "counts"])
+    df.set_index("posXtoPosY", inplace=True)
+    df.index.name = None
+
+    return df
+
 
 def oeNormalizeSparse(records,outType="OE"):
     distance_sums = defaultdict(float)
@@ -140,15 +170,21 @@ def paral_sparse(hicfilepath,chri,hicnorm,hicres,gtdf,contactNorm='abc'):
     return chri,nomhicchri
 
 def gethicfile(hicfilepath,hicres,hictype,genechrlist,
-               hicnorm="SCALE",gt=None,juicertool=None,threads=8,contactNorm='abc'):
+               hicnorm="SCALE",gt=None,juicertool=None,threads=8,contactNorm='abc',
+               hicprefix="observed.VC_SQRT.",hicsuffix=".matrix.gz"):
     
-    if hictype=="matrix_dense":
-        for chri in genechrlist:
-            nomhicdf[chri] = np.array(normalizehic_dense(hicfilepath))
-    elif hictype == 'rawhic_sparse':
-        print(f"......Using {threads} threads to process Hi-C. More threads require larger memory.")
+    print(f"......Using {threads} threads to process Hi-C. More threads require larger memory.")
 
+    if hictype=="matrix_dense":
+        nomhicdf={}
+        for chri in genechrlist:
+            print("......Reading dense matrix for "+str(chri))
+            densemt = np.array(normalizehic_dense(hicfilepath+"/"+hicprefix+str(chri)+hicsuffix))
+            print("......Normalizing the contact weight.")
+            nomhicdf[chri] = dense_to_long(densemt,resolution=hicres)
+    elif hictype == 'rawhic_sparse':
         gtdf = pd.read_csv(gt,sep="\t",header=None)
+        print("......Normalizing the contact weight.")
         with concurrent.futures.ProcessPoolExecutor(max_workers=threads) as executor:
             nomhicdf={}
             futures = {executor.submit(paral_sparse,hicfilepath,chri,hicnorm,hicres,gtdf,contactNorm): 
@@ -166,14 +202,20 @@ def gethicfile(hicfilepath,hicres,hictype,genechrlist,
             nomhicdf[chri] = normDF_sparse(records,hicres,chri_len)
         '''
     elif hictype=='rawhic_dense':
+        nomhicdf={}
         manyJuicer(hicfilepath,hicnorm,hicres,gt,"juicerdump",juicertool,genechrlist,threads=threads)
+        print("......Normalizing the contact weight.")
         for chri in genechrlist:
             #genedfchri = self.genedf[self.genedf[0]==chri]
             #tsslist = genedfchri.apply(lambda row: row[1] if row[5] == "+" else row[2], axis=1)
             matrixfile = "juicerdump/"+str(hicres)+"/observed."+str(hicnorm)+"."+str(chri)+".matrix.gz"
-            nomhicdf[chri]= np.array(normalizehic_dense(matrixfile))
+            densemt = np.array(normalizehic_dense(matrixfile))
+
+            nomhicdf[chri]= dense_to_long(densemt,resolution=hicres)
     else:
         print("Please give the hictype parameter ['matrix','rawhic']")
+
+    print(f"......Finished the Hi-C weight process.")
 
     return(nomhicdf)
 
@@ -227,19 +269,16 @@ def makemt(i,lenhic,res,mindistance,gamma,scale,ref_gamma,ref_scale):
     return((eachrow_fitdf,eachrow_refdf,eachrow_pseudodf))
 
 def normalizehic_dense(matrixfile,smoothdiagbin=1):
-    print("Read input files...")
     hicrawdf = pd.read_csv(matrixfile,delimiter='\t', index_col=0)
     hicdf = np.array(hicrawdf)
     lenhic = len(hicdf)
 
-    print("Normalize to rowsum = 1")
     rowsum =np.nansum(hicdf,axis=1)
     #summean= np.nanmean(rowsum)
     rowsum_mean = np.nansum(rowsum)/lenhic
     #if abs(rowsum_mean-1) > 0.001:
     hicdf = hicdf/rowsum_mean
 
-    print("Adjust diagnal...")
     for i in range(lenhic):
         lowerindex = i-smoothdiagbin
         upperindex = i+smoothdiagbin

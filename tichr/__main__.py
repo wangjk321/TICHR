@@ -21,17 +21,17 @@ def main():
     def func_calcu(args):
         print("Creating Tichr object...")
         args.readFileList = args.readFileList.split(",")
-        if args.readFileList2 != "nodata":
+        if args.readFileList2 != None:
             args.readFileList2 = args.readFileList2.split(",")
         
-        if not os.path.exists(args.outdir): os.makedirs(args.outdir)
+        #if not os.path.exists(args.outdir): os.makedirs(args.outdir)
         
-        tichobj = Tichr(args.candidateSite,args.readFileList,args.gtfile,args.candidateGeneFile,refgene_file=args.refgene_file,
-                        ifTSSrange=args.TSSrange,peakToGeneMaxDistance=args.peakToGeneMaxDistance,
+        tichobj = Tichr(args.candidateSite,args.readFileList,args.gtfile,args.candidateGeneFile,refGeneFile=args.refGeneFile,
+                        ifTSSrange=args.TSSrange,S2Gmax=args.S2Gmax,
                         hicfilepath=args.hicfilepath,readFileList2=args.readFileList2)
-        
-
         print("Start makeSiteBed...")
+
+
         tichobj.makeSiteBed(macs2species=args.macs2species,binResolution=args.binResolution,
                     blackregion=args.blackregion,tmpdir=args.tmpdir,fixPeakWidth=args.fixPeakWidth)
         print("Finish makeSiteBed")
@@ -41,7 +41,6 @@ def main():
         print("Start makeSiteBdg...")
         tichobj.makeSiteBdg(args.coverageMethod,spmr = args.spmr,multiBAMmerge=args.multiBAMmerge,file_type=args.file_type,)
         print("Finish makeSiteBdg")
-
         
         if args.hicfilepath:
             print("Start process HiC...")
@@ -54,44 +53,26 @@ def main():
         tichobj.computeAllGene(args.weightType,fixedFunctionType=args.fixedFunctionType,halfDistance=args.halfDistance,
                                setpromoter1=args.setpromoter1,threads=1,ifUseHiCRef=args.ifUseHiCRef,
                                noise_ratio=args.noise_ratio, noise_quantile=args.noise_quantile)
-        
-        tichobj.RgxDf.to_csv(args.outdir + "/RgX.tsv",header=None,sep="\t",index=None)
-        tichobj.RgDf.to_csv(args.outdir + "/Rg.tsv",header=None,sep="\t",index=None)
+    
+
+        print("Saving files...")
+        tichobj.save(outname=args.outname, header=args.outhead)
+
         print("Finish Computing...")
+        tichobj.clean()
 
 
-        if args.tpmfile and args.structureTypeList and args.structureFileList and args.structureWeightList:
-            print("Start adjust RgX and Rg...")
-            args.tpmfile = os.path.abspath(args.tpmfile)
 
-            args.structureTypeList = args.structureTypeList.split(",")
 
-            args.structureFileList = args.structureFileList.split(",")
+    
 
-            args.structureWeightList = [float(i) for i in args.structureWeightList.split(",")]
-            if len(args.structureTypeList) != len(args.structureFileList) or len(args.structureTypeList) != len(args.structureWeightList):
-                raise ValueError("The length of structureTypeList, structureFileList, and structureWeightList must be the same.")
-            args.tmpcolrep= [int(i) for i in args.tmpcolrep.split(",")]
-            adjvalue(args.outdir + "/RgX.tsv",args.outdir + "/Rg.tsv",args.outdir,args.tpmfile,
-                    args.structureTypeList,args.structureFileList,args.structureWeightList,
-                    tmpcolrep=args.tmpcolrep,ignorehead=args.ignorehead,tmpgeneID=args.tmpgeneID,
-                    ranktype=args.ranktype,)
-            print("Finish adjust RgX and Rg...")
 
-    def func_negative(args):
-        print("Merging data frames...")
-        rg_merged,rgx_merged = mergeDF(args.rg_ctrl,args.rg_treat,args.rgx_ctrl,args.rgx_treat,minRgx=args.min_rgx,minRgxRatio=args.min_rgx_ratio)
-        outdir=args.outdir
-        if not os.path.exists(outdir): os.makedirs(outdir)
-        extractNeg(rg_merged, rgx_merged,showInteration=False,
-                corrtype=args.corrtype,filetype="pandas",
-                outdir=outdir,outname="ERnegative",minRgxRatio=args.min_rgx_ratio)
         
         
 
     #input file
     parser_calcu = subparsers.add_parser("calcu", help="Calculate Rg and RgX based on multiomics data")
-    input_group = parser_calcu.add_argument_group("Input and output argument")
+    input_group = parser_calcu.add_argument_group("Input argument")
     input_group.add_argument("readFileList",help='''A list of input files for epigenomic data such as ChIP-seq, 
                                                    ATAC-seq, or CUT&Tag.\ Supported formats include BAM, BigWig, 
                                                 and BedGraph. Multiple files should be provided as a list, e.g., 
@@ -102,21 +83,22 @@ def main():
                              It must contain at least six columns in the following order: \
                              [chromosome, start, end, gene symbol, gene ID, strand (+/-)]",type=str)
     input_group.add_argument("gtfile",help="A tab-separated genome table file, with column 1 specifying chromosome names and column 2 indicating chromosome lengths.",type=str)
-    input_group.add_argument("--refgene_file",help="Reference gene file in the same format as candidateGeneFile. This file is used to define gene promoter regions. Typically, it can be the same as candidateGeneFile",type=str)
+    input_group.add_argument("--refGeneFile",help="Reference gene file in the same format as candidateGeneFile. This file is used to define gene promoter regions. Typically, it can be the same as candidateGeneFile",type=str)
     input_group.add_argument("--TSSrange",help="Defines the promoter region as transcription start site (TSS) ± this range.",type=int,default=500)
-    input_group.add_argument("--peakToGeneMaxDistance",help="Maximum distance (in base pairs) allowed between a peak and a gene for linking",type=int,default=100000)
-    input_group.add_argument("--hicfilepath",help="Path to hic files in Juicer .hic format.",type=str)
-    input_group.add_argument("--readFileList2",default="nodata",help="A second set of epigenome data files, in the same format as readFileList. \
+    input_group.add_argument("--S2Gmax",help="Maximum distance (in base pairs) allowed between a peak and a gene for linking",type=int,default=100000)
+    input_group.add_argument("--hicfilepath",help="Path to hic files in Juicer .hic format.",type=str,default=None)
+    input_group.add_argument("--readFileList2",default=None,help="A second set of epigenome data files, in the same format as readFileList. \
                              For example, DNase signals can be provided in readFileList and H3K27ac signals in readFileList2. \
                              These two signals are combined using the geometric mean",type=str)
-    input_group.add_argument("--outdir",help="Output directory",default="outdir",type=str)
+    
+    
 
     #process epigenome command
     processEpi_group = parser_calcu.add_argument_group("Process epigenome data arguments")
     processEpi_group.add_argument("--macs2species",help='''Used only when candidateSite is set to "denovo_peak". Specifies the effective genome size for MACS2 peak calling. It can be a numeric value (e.g., 1000000000) or a shortcut string (‘hs’ for human, ‘mm’ for mouse, ‘ce’ for C. elegans, ‘dm’ for Drosophila)''',type=str,default="hs")
     processEpi_group.add_argument("--binResolution",help='''Used only when candidateSite is set to “surronding_bin”. Defines the bin size (in base pairs) for creating windowed candidate sites.''',type=int,default=100)
     processEpi_group.add_argument("--blackregion",help="Regions to exclude, such as ENCODE blacklist sites, provided in Bed3 format",type=str,default=None)
-    processEpi_group.add_argument("--fixPeakWidth",help=": Applicable only for given BED3 candidate sites. If set to True, each peak’s width is fixed to 500 bp by centering and extending ±250 b",type=int,default=None)
+    processEpi_group.add_argument("--fixPeakWidth",dest='fixPeakWidth', action='store_true',help=": Applicable only for given BED3 candidate sites. If set to True, each peak’s width is fixed to 500 bp by centering and extending ±250 b")
     processEpi_group.add_argument("--tmpdir",help="Temporary directory name for intermediate files. Default is a randomly generated name like tichr_tmp_rsDuchihKJ",type=str,default=None)
     processEpi_group.add_argument("--coverageMethod",help='''Method used to compute coverage. For most users, “coverageBed” is recommended.''',type=str,default="coverageBed")
     processEpi_group.add_argument('--spmr', dest='spmr', action='store_true', help="Whether to normalize signal by total mapped reads (Signal Per Million Reads). Set to True if you plan to compare Rg or RgX across samples")
@@ -146,29 +128,17 @@ def main():
     calculate_group.add_argument("--setpromoter1",action='store_true',default=False,help="If set, sets the RgX ratio of promoter regions to 1")
     calculate_group.add_argument("--threadscalcu",type=int,default=1,help="Not recommended. Number of threads for calculation")
 
-    #Adjustment arguments
     
-    # adjust grounp
-    adjust_group = parser_calcu.add_argument_group("Adjustment arguments")
-    adjust_group.add_argument("--tpmfile",type=str, default=None, help="The TPM file contains gene expression values in a single-column format, \
-                              where each row corresponds to the TPM value of a gene.")
-    adjust_group.add_argument("--tmpcolrep",type=str,default="3,4",help="The column number in the TPM file that contains the TPM, could be multiple columns. like 1,2")
-    adjust_group.add_argument("--ignorehead",action='store_true',default=False,help="If set, the first row of the TPM file is ignored. \
-                              This is useful when the first row contains column headers.")
-    adjust_group.add_argument("--tmpgeneID",type=int,default=2,help="The column name in the TPM file that contains gene IDs." )
-    adjust_group.add_argument("--structureTypeList",type=str,default=None,help="A comma-separated list of structure types to be used for adjustment. \
-                              must be supplied in this way 'boundary','tad','loop','stripe','compartmentSame'")
-    adjust_group.add_argument("--structureFileList",type=str,default=None,help="A comma-separated list of files containing structure information. \
-                              must be supplied in this way 'boundary.bed','tad.bed','loop.bed','stripe.bed','compartmentSame.bed'")
-    adjust_group.add_argument("--structureWeightList",type=str,default=None,help="A comma-separated list of weights corresponding to each structure type. \
-                              must be supplied in this way 0.5,1.2,5,2,2 ")
-    adjust_group.add_argument("--ranktype",type=int,default=0,help="ranktype could be sumrank or diffrak")
-    adjust_group.add_argument("--noise_ratio",type=float,default=0,help=" If the proportion of the Rgx value to the Rg value of the gene is less than this value, the Rgx value will be set to 0.")
-    adjust_group.add_argument("--noise_quantile",type=float,default=0,help="If the percentile of the Rgx value among all Rgx values of the gene is less than this value, the Rgx value will be set to 0.")
+
+    # outgroup
+    out_group = parser_calcu.add_argument_group("Output argument")
+    out_group.add_argument("--outname",help="Output name prefix",default="outdir",type=str)
+    out_group.add_argument("--outhead",dest='outhead', action='store_true', default=False, help="Define if the output file with column name")
+    out_group.add_argument("--noise_ratio",type=float,default=0,help=" If the proportion of the Rgx value to the Rg value of the gene is less than this value, the Rgx value will be set to 0.")
+    out_group.add_argument("--noise_quantile",type=float,default=0,help="If the percentile of the Rgx value among all Rgx values of the gene is less than this value, the Rgx value will be set to 0.")
+
 
     parser_calcu.set_defaults(func=func_calcu)
-
-
 # #------------------------------------------------------------------
 #     #Function2 DEG analysis for Rg and RgX
 #     parser_deg = subparsers.add_parser("deg", help="Differential analysis based on Rg and RgX")
@@ -204,26 +174,112 @@ def main():
 #     context_output = parser_diff.add_argument_group("Output argument for context-specific analysis")
 #     context_output.add_argument("--outname",default="TF")
 
+    def func_adjust(args):
+
+        if not os.path.exists(args.outdir):
+            os.makedirs(args.outdir)
+
+        #if args.tpmFile and args.strucTypeList and args.strucFileList and args.strucWeightList:
+        if args.tpmFile:
+            print("Start adjust RgX and Rg...")
+
+            args.tpmFile = os.path.abspath(args.tpmFile)
+
+            args.tpmCols= [int(i) for i in args.tpmCols.split(",")]
+
+            if args.strucTypeList and args.strucFileList and args.strucWeightList:
+                args.strucTypeList = args.strucTypeList.split(",")
+                print("strucTypeList:",args.strucTypeList)
+
+                args.strucFileList = args.strucFileList.split(",")
+                print("strucFileList:",args.strucFileList)
+
+                args.strucWeightList = [float(i) for i in args.strucWeightList.split(",")]
+                print("strucWeightList:",args.strucWeightList)
+
+                if len(args.strucTypeList) != len(args.strucFileList) or len(args.strucTypeList) != len(args.strucWeightList):
+                    raise ValueError("The length of strucTypeList, strucFileList, and strucWeightList must be the same.")
+
+            adjS2G(args.inputRgx,args.inputRg,args.tpmFile,
+                    args.strucTypeList,args.strucFileList,args.strucWeightList,
+                    tpmCols=args.tpmCols,tpmHead=args.tpmHead,tpmGeneID=args.tpmGeneID,
+                    rankType=args.rankType,outdir=args.outdir,RgXhead=False)
+            print("Finish adjust RgX and Rg...")
+
+
+    # adjust grounp
+    parser_adjust = subparsers.add_parser("adjust", help="Adjust S2G regulation")
+    adjust_group = parser_adjust.add_argument_group("Adjustment Arguments")
+
+    adjust_group.add_argument("inputRgx",type=str, help="The input RgX DF file, should be standard output from tichr calcu")
+    adjust_group.add_argument("inputRg",type=str, help="The input Rg DF file, should be standard output from tichr calcu ")
+    adjust_group.add_argument("outdir",type=str, help="The output directory where the adjusted results will be saved.")
+    adjust_group.add_argument("--RgXhead",action='store_true',default=False,help="Set it if the RgX files contain header lines.")
+
+
+    adjust_group.add_argument("--tpmFile",type=str, default=None, help="The TPM file contains gene expression values in a single-column format, \
+                              where each row corresponds to the TPM value of a gene.")
+    adjust_group.add_argument("--tpmCols",type=str,default="3,4",help="The column number in the TPM file that contains the TPM, could be multiple columns. like 1,2")
+    adjust_group.add_argument("--tpmHead",action='store_true',default=False,help="If set, the first row of the TPM file is ignored. \
+                              This is useful when the first row contains column headers.")
+    adjust_group.add_argument("--tpmGeneID",type=int,default=2,help="The column name in the TPM file that contains gene IDs." )
+    adjust_group.add_argument("--rankType",type=str,default=0,help="ranktype could be sumrank or diffrak")
+
+    adjust_group.add_argument("--strucTypeList",type=str,default=None,help="A comma-separated list of structure types to be used for adjustment. \
+                              must be supplied in this way 'boundary','tad','loop','stripe','compartmentSame'")
+    adjust_group.add_argument("--strucFileList",type=str,default=None,help="A comma-separated list of files containing structure information. \
+                              must be supplied in this way 'boundary.bed','tad.bed','loop.bed','stripe.bed','compartmentSame.bed'")
+    adjust_group.add_argument("--strucWeightList",type=str,default=None,help="A comma-separated list of weights corresponding to each structure type. \
+                              must be supplied in this way 0.5,1.2,5,2,2 ")
+    
+
+    parser_adjust.set_defaults(func=func_adjust)
+
+#---------------------------------------
+
+    def func_negative(args):
+        print("Merging data frames...")
+        rg_merged,rgx_merged = mergeDF(args.rgCtrl,args.rgTreat,args.rgxCtrl,args.rgxTreat,
+                                       minRgx=args.minRgx,minRgxRatio=args.minRgxRatio,minRgxQuantile=args.minRgxQuantile)
+
+        print("Computing negative regulation...")
+
+        extractNeg(rg_merged, rgx_merged,showInteration=False,
+                corrtype=args.corrtype,filetype="pandas",
+                outdir=args.outdir,outname=args.outname,
+                geneFC_cutoff=args.geneFC_cutoff,geneFDR_cutoff=args.geneFDR_cutoff,
+                rgxFC_cutoff=args.rgxFC_cutoff)
 
     parser_neg = subparsers.add_parser("neg", help="Identify context-specific repressive functions")
     neg_nes = parser_neg.add_argument_group("Necessary Arguments")
 
     # neg_nes = neg_input.add_argument_group("Necessary arguments")
-    neg_nes.add_argument("--outdir", type=str,help="Direction for output files.")
-    neg_nes.add_argument("--rg_ctrl", type=str,help="Direction to control group Rg file.")
-    neg_nes.add_argument("--rg_treat", type=str,help="Direction to treated group Rg file.")
-    neg_nes.add_argument("--rgx_ctrl", type=str,help="Direction to control group Rgx file.")
-    neg_nes.add_argument("--rgx_treat", type=str,help="Direction to treated group Rgx file.")
+    
+    neg_nes.add_argument("rgCtrl", type=str,help="Direction to control group Rg file.")
+    neg_nes.add_argument("rgTreat", type=str,help="Direction to treated group Rg file.")
+    neg_nes.add_argument("rgxCtrl", type=str,help="Direction to control group Rgx file.")
+    neg_nes.add_argument("rgxTreat", type=str,help="Direction to treated group Rgx file.")
+    neg_nes.add_argument("outdir", type=str,help="Direction for output files.")
+    neg_nes.add_argument("outname", type=str,help="Output file prefix.")
 
     neg_opt = parser_neg.add_argument_group("Options")
     neg_opt.add_argument("--corrtype", type=str, default="pearson", 
                                help="Could be 'spearman' or 'pearson' (Default: pearson)")
-    neg_opt.add_argument("--min_rgx", type=float, default=0.1, help="Filter the site-to-gene links by RgX value > min Rgx. (Default: 0.1)")
-    neg_opt.add_argument("--min_rgx_ratio", type=float, default=0.01, 
-                               help="Filter the site-to-gene links by RgX Ratio > min RgxRatio (Default: 0.01)")
+    neg_opt.add_argument("--minRgx", type=float, default=0, help="Filter the site-to-gene links by RgX value > min Rgx. (Default: 0)")
+    neg_opt.add_argument("--minRgxQuantile", type=float, default=0, 
+                         help="If the percentile of the Rgx value among all Rgx values of the gene is less than this value, the Rgx value will be set to 0.")
+    neg_opt.add_argument("--minRgxRatio", type=float, default=0, 
+                         help="Filter the site-to-gene links by RgX Ratio > min RgxRatio (Default: 0)")
+    
+    neg_opt.add_argument("--geneFC_cutoff", type=float,default=0.5,
+                         help="Cutoff for the absolute log fold-change (|logFC|) of gene expression. Default=0.5")
+    neg_opt.add_argument("--geneFDR_cutoff", type=float,default=0.05,
+                         help="Cutoff for the FDR of gene expression. Default=0.05")
+    neg_opt.add_argument("--rgxFC_cutoff", type=float,default=0.5,
+                         help="Cutoff for the absolute log fold-change (|logFC|) of gene-level regulation.")
+
     parser_neg.set_defaults(func=func_negative)
     
-
 
 #     def contextfunc(args):
 #         if args.type ==  "test":

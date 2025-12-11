@@ -57,7 +57,7 @@ def pltoneroc(stand,score,stand_label,color):
         plt.plot(1-fpr, 1-tpr, lw=2, label=label,color=color,alpha=0.8)
 
 
-def showAUPRC(stand1,score1,label1='curve1',
+def showPRC(stand1,score1,label1='curve1',
             stand2=None,score2=None,label2=None,
             stand3=None,score3=None,label3=None,
             stand4=None,score4=None,label4=None,

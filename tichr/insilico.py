@@ -88,7 +88,10 @@ def plotFDRbox(selectp,otherp):
     plt.show()
 
 
-def silico(RgxDF_Ctrl,deletepeakDF,RgDF_Ctrl=None,degtype="all",degfdr=0.01,nrandom=20,fixrandom=False):
+def silico(RgxDF_Ctrl,deletepeakDF,nrandom=20,degDF=None,degtype="all",degfdr=0.01,fixrandom=False):
+    import warnings
+    warnings.filterwarnings("ignore", message="Exact p-value calculation does not work")
+
     beforeDeletionRg = RgxDF_Ctrl.groupby(4)[11].sum()
     afterDeletion = bed_intersect(RgxDF_Ctrl,deletepeakDF,mode= 'intersectV')
     afterDeletionRg = afterDeletion.groupby(4)[11].sum()
@@ -99,7 +102,6 @@ def silico(RgxDF_Ctrl,deletepeakDF,RgDF_Ctrl=None,degtype="all",degfdr=0.01,nran
     diffrg_random_list=[]
     for i in range(nrandom):
         seed_i = rng.integers(0, 1e9) 
-        print(i)
         randomRgx = RgxDF_Ctrl.sample(n=len(afterDeletion), random_state=seed_i)
         randomRg = randomRgx.groupby(4)[11].sum()
         randomRgReindex = randomRg.reindex(beforeDeletionRg.index, fill_value=0)
@@ -121,8 +123,14 @@ def silico(RgxDF_Ctrl,deletepeakDF,RgDF_Ctrl=None,degtype="all",degfdr=0.01,nran
     _, fdr_pvals, _, _ = multipletests(wilcoxplist, method='fdr_bh')
     qvaluelist= pd.Series(fdr_pvals).fillna(1)
     qvaluelist.index= diffrg.index
+
+    outdf = pd.DataFrame()
+    outdf["geneID"] = qvaluelist.index
+    outdf["pvalue"] = wilcoxplist
+    outdf["FDR"] = list(qvaluelist)
     
-    if RgDF_Ctrl is not None:
+    if degDF is not None:
+        RgDF_Ctrl = degDF
         RgDF_Ctrl.index=RgDF_Ctrl[3]
         RgDF_Ctrl['qvalue'] = qvaluelist
         RgDF_Ctrl['qvalue'] = RgDF_Ctrl['qvalue'].fillna(1)
@@ -135,13 +143,13 @@ def silico(RgxDF_Ctrl,deletepeakDF,RgDF_Ctrl=None,degtype="all",degfdr=0.01,nran
             degbool = (RgDF_Ctrl[6]>1) & (RgDF_Ctrl[7]<degfdr)
         selectp = RgDF_Ctrl[degbool]['qvalue']
         otherp = RgDF_Ctrl[~degbool]['qvalue']
-        print(otherp)
 
-        print("真实DEGs中受干扰后判定为靶基因的比例:",(selectp<0.05).mean())
-        print("非DEGs中受干扰后判定为靶基因的比例:",(otherp<0.05).mean())
+        print("Fraction of true DEGs predicted as affected target genes upon perturbation:",(selectp<0.05).mean())
+        print("Fraction of non-DEGs erroneously predicted as affected target genes upon perturbation:",(otherp<0.05).mean())
         plotFDRbox(-np.log10(selectp),-np.log10(otherp))
     
-    return(qvaluelist)
+    
+    return(outdf)
     '''pltoneprc(degbool,-np.log10(RgDF_Ctrl['qvalue'].fillna(1)),"auprc",cols[0])
     plt.legend()
     plt.show()

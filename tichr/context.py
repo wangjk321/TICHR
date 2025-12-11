@@ -29,7 +29,8 @@ def makesumrank_center0(list1,list2):
     rank2 = list2.rank()
     return (rank1+rank2)/(len(list1)) -1
 
-def mergeDF(rgCtrl_path,rgTreat_path,rgxCtrl_path,rgxTreat_path,samehic=False, minRgx=0.1,minRgxRatio=0.01,filter=True):
+def mergeDF(rgCtrl_path,rgTreat_path,rgxCtrl_path,rgxTreat_path,samehic=False, 
+            minRgx=0,minRgxRatio=0,minRgxQuantile=0,filter=True):
     rgCtrl = pd.read_csv(rgCtrl_path, sep="\t",header=None)
     rgTreat = pd.read_csv(rgTreat_path, sep="\t",header=None)
     rgxCtrl = pd.read_csv(rgxCtrl_path, sep="\t",header=None)
@@ -37,6 +38,7 @@ def mergeDF(rgCtrl_path,rgTreat_path,rgxCtrl_path,rgxTreat_path,samehic=False, m
     
     if filter:
         goodvalue = rgxCtrl[11] > float('-inf')
+        goodvalue = ((rgxCtrl[11]+rgxTreat[11])/2 > ((rgxCtrl[11]+rgxTreat[11])/2).quantile(minRgxQuantile)) & goodvalue
         goodvalue = ((rgxCtrl[11]+rgxTreat[11])/2 > minRgx) & goodvalue
         goodvalue = ((rgxCtrl[12]+rgxTreat[12])/2 > minRgxRatio) & goodvalue
 
@@ -341,9 +343,6 @@ def select_by_rank(select_rg,select_tpm,predict_rg,predict_tpm,
 
 
 
-
-
-
 def logneg(values):
     return np.sign(values) * np.log1p(np.abs(values))
 
@@ -362,14 +361,28 @@ def extractNeg(mergedRgFile, mergedRgxFile, rgctrl_col_num=9, rgtreat_col_num=10
                tpm_col_num=8, logfc_col_num=6, geneID_col_num=3,geneFDR_col_num=7, 
                rgx_geneID_col=4,rgx_ctrl_col=11,rgx_treat_col=13,negboolRgX=None,iteration=True,outname="outname",
                showInteration=False,iteration_count=0,outdir="identify_context",filetype="file",corrtype="pearson",
-               extractType="negative",minRgxRatio=0,epifdr=False,
+               extractType="negative",minRgxRatio=0,epifdr=False,rgxFDR_cutoff=0.05,
                geneFDR_cutoff=0.1,geneFC_cutoff=0.5,rgxFC_cutoff=0.2,outprefix="Sample"):
+    
+    if not os.path.exists(outdir): os.makedirs(outdir)
+
     if filetype=="file":
         mergedRg = pd.read_csv(mergedRgFile,header=None,sep="\t")
         mergedRgx = pd.read_csv(mergedRgxFile,header=None,sep="\t")
     elif filetype=="pandas":
         mergedRg = mergedRgFile.copy()
         mergedRgx = mergedRgxFile.copy()
+
+    # Rg 文件：一基因一行（已经是 gene-level）
+    rg_genes = mergedRg[3].values
+
+    # RgX 文件：去重成 gene-level
+    rgx_genes = mergedRgx[4].drop_duplicates().values
+
+    # 检查长度是否一致
+    if len(rg_genes) != len(rgx_genes):
+        raise ValueError(f"Gene count mismatch: Rg={len(rg_genes)}, RgX={len(rgx_genes)}.")
+    
 
     mergedRg = mergedRg[mergedRg[rgtreat_col_num]+mergedRg[rgctrl_col_num] != 0]
     mergedRg.reset_index(drop=True, inplace=True)
@@ -454,10 +467,10 @@ def extractNeg(mergedRgFile, mergedRgxFile, rgctrl_col_num=9, rgtreat_col_num=10
     if negboolRgX is None:
         if extractType == "negative":
             negboolRgX = degbool & (abs(df_rgx["logFC_Rgx"])>rgxFC_cutoff) & (tmpvalue < 0)
-            if epifdr: negboolRgX = negboolRgX & (df_rgx["epifdr"]<0.05)
+            if epifdr: negboolRgX = negboolRgX & (df_rgx["epifdr"]<rgxFDR_cutoff)
         elif extractType == "positive":
             negboolRgX = degbool & (abs(df_rgx["logFC_Rgx"])>rgxFC_cutoff) & (tmpvalue > 0)
-            if epifdr: negboolRgX = negboolRgX & (df_rgx["epifdr"]<0.05)
+            if epifdr: negboolRgX = negboolRgX & (df_rgx["epifdr"]<rgxFDR_cutoff)
     
     print(f"----------Iteration {iteration_count} --------------")
     iteration_count += 1 
@@ -468,6 +481,9 @@ def extractNeg(mergedRgFile, mergedRgxFile, rgctrl_col_num=9, rgtreat_col_num=10
     elif extractType == "positive":
         neg_weight = np.where(negboolRgX, 1*abs(sumrank0), 1) 
     EPregulate = neg_weight
+
+    
+
     df_rgx["adj_Rgx_ctrl"] = df_rgx["Rgx_ctrl"] * EPregulate
     df_rgx["adj_Rgx_treat"] = df_rgx["Rgx_treat"] * EPregulate
     df_rgx["adj_meanRgx"] = logneg((df_rgx["adj_Rgx_ctrl"] + df_rgx["adj_Rgx_treat"])/2)
@@ -478,6 +494,7 @@ def extractNeg(mergedRgFile, mergedRgxFile, rgctrl_col_num=9, rgtreat_col_num=10
 
     # Re-calculate Rg
     adj_Rg_ctrl = df_rgx.groupby("geneID")["adj_Rgx_ctrl"].sum()
+
     adj_Rg_treat = df_rgx.groupby("geneID")["adj_Rgx_treat"].sum()
     
     adj_logFC_Rg = logneg(adj_Rg_treat) - logneg(adj_Rg_ctrl)
@@ -520,7 +537,7 @@ def extractNeg(mergedRgFile, mergedRgxFile, rgctrl_col_num=9, rgtreat_col_num=10
         plt.colorbar(shrink=0.4)
         plt.scatter(df_rgx["logFC_Rgx"][~negboolRgX],df_rgx["geneFC"][~negboolRgX],s=5,alpha=0.5,
                     color="grey")
-        plt.title("Changes of links",fontsize=14)
+        plt.title("Identified negative S2G",fontsize=14)
         plt.xlabel("\u0394RgX")
         plt.ylabel("gene-logFC")
         plt.tight_layout()
@@ -534,7 +551,7 @@ def extractNeg(mergedRgFile, mergedRgxFile, rgctrl_col_num=9, rgtreat_col_num=10
         plt.scatter(df_rgx["adj_meanRgx"][negboolRgX],df_rgx["geneTPM"][negboolRgX],s=5,alpha=1,color="m",label="adjusted links")
         plt.scatter(df_rgx["meanRgx"],df_rgx["geneTPM"],s=2,alpha=0.2,color="#689673",label="original links")
         plt.legend(fontsize=8)
-        plt.xlabel("Adjusted RgX")
+        plt.xlabel("Refined RgX")
         plt.ylabel("Gene-TPM")
         ax = plt.gca()
         ax.spines['right'].set_visible(False)
@@ -545,7 +562,7 @@ def extractNeg(mergedRgFile, mergedRgxFile, rgctrl_col_num=9, rgtreat_col_num=10
         plt.scatter(adj_logFC_Rg,adj_logFC_gene,color="indigo",s=4,alpha=0.5,label="adjusted genes")
         plt.scatter(df_rg["logFC-Rg"],df_rg["logFC-CPM"],s=4,alpha=0.5,color="#939668",label="original genes")
         plt.legend(fontsize=8)
-        plt.xlabel("\u0394Rg")
+        plt.xlabel("\u0394Rg (Refined)")
         plt.ylabel("Gene-logFC")
         ax = plt.gca()
         ax.spines['right'].set_visible(False)
@@ -553,7 +570,7 @@ def extractNeg(mergedRgFile, mergedRgxFile, rgctrl_col_num=9, rgtreat_col_num=10
 
         plt.subplot(1, 3, 3)
         plot_scatter_with_fit(adj_meanRg,adj_geneTPM,color="darkorange",insideplot=True,
-                                title="Genes (Rg vs TPM)",x_label="Adjusted Rg", y_label ="Gene-TPM",s=5)
+                                title="Genes (Rg vs TPM)",x_label="Refined Rg", y_label ="Gene-TPM",s=5)
         ax = plt.gca()
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
@@ -568,20 +585,20 @@ def extractNeg(mergedRgFile, mergedRgxFile, rgctrl_col_num=9, rgtreat_col_num=10
         # Boxplot 1: Gene TPM
         axs[0].boxplot([raw_RgDF_withNeg["TPM_ctrl"], df_rg["TPM_ctrl"]],
                         widths=0.8, notch=True, patch_artist=True, showfliers=False,boxprops=dict(facecolor='lightblue'))
-        axs[0].set_title("Gene TPM")
+        axs[0].set_title("TPM")
         axs[0].set_ylabel("TPM")
         axs[0].set_xticklabels(['Genes with\nnegative', 'All Genes'],rotation=45,ha="right")
         # Boxplot 2: Gene raw Rg
         axs[1].boxplot([raw_RgDF_withNeg["Rg_ctrl"], df_rg["Rg_ctrl"]],
                         widths=0.8, notch=True, patch_artist=True, showfliers=False,boxprops=dict(facecolor='lightgreen'))
-        axs[1].set_title("Gene raw Rg")
+        axs[1].set_title("Raw Rg")
         axs[1].set_ylabel("Raw Rg")
         axs[1].set_xticklabels(['Genes with\nnegative', 'All Genes'],rotation=45,ha="right")
         # Boxplot 3: Gene adjusted Rg
         axs[2].boxplot([adj_RgDF_withNeg["adj_meanRg"], adj_RgDF["adj_meanRg"]],
                         widths=0.8, notch=True, patch_artist=True, showfliers=False, boxprops=dict(facecolor='lightcoral'))
-        axs[2].set_title("Gene adjusted Rg")
-        axs[2].set_ylabel("Adjusted Rg")
+        axs[2].set_title("Refined Rg")
+        axs[2].set_ylabel("Refined Rg")
         axs[2].set_xticklabels(['Genes with\nnegative', 'All Genes'],rotation=45,ha="right")
 
         for spine in ['right', 'top']:
@@ -614,7 +631,7 @@ def extractNeg(mergedRgFile, mergedRgxFile, rgctrl_col_num=9, rgtreat_col_num=10
         return extractNeg(mergedRgFile, mergedRgxFile, rgctrl_col_num, rgtreat_col_num,tpm_col_num, 
                logfc_col_num, geneID_col_num,geneFDR_col_num, rgx_geneID_col,rgx_ctrl_col,rgx_treat_col,outname=outname,outdir=outdir,
                negboolRgX=further_negtive,showInteration=showInteration,iteration_count=iteration_count,filetype=filetype,
-               minRgxRatio=minRgxRatio,epifdr=epifdr,
+               minRgxRatio=minRgxRatio,epifdr=epifdr,rgxFDR_cutoff=0.05,
                geneFDR_cutoff=geneFDR_cutoff,geneFC_cutoff=geneFC_cutoff,rgxFC_cutoff=rgxFC_cutoff)
         
     elif adj_corr<raw_corr and iteration:
@@ -654,7 +671,7 @@ def extractNeg(mergedRgFile, mergedRgxFile, rgctrl_col_num=9, rgtreat_col_num=10
 
 
 def mergeDFmany(rgCtrl_file,rgTreat_file,rgxCtrl_file,rgxTreat_file,
-                samehic=False, minRgx=0.1,minRgxRatio=0.01):
+                samehic=False, minRgx=0.1,minRgxRatio=0.01,minRgxQuantile=0.01):
     
     rgvalue_ctrl = []
     for i in rgCtrl_file:
@@ -705,6 +722,7 @@ def mergeDFmany(rgCtrl_file,rgTreat_file,rgxCtrl_file,rgxTreat_file,
     rgxTreat[12] = pd.concat(rgxratio_treat, axis=1).mean(axis=1)
 
     goodvalue = rgxCtrl[11] > float('-inf')
+    goodvalue = ((rgxCtrl[11]+rgxTreat[11])/2 > ((rgxCtrl[11]+rgxTreat[11])/2).quantile(minRgxQuantile)) & goodvalue
     goodvalue = ((rgxCtrl[11]+rgxTreat[11])/2 > minRgx) & goodvalue
     goodvalue = ((rgxCtrl[12]+rgxTreat[12])/2 > minRgxRatio) & goodvalue
     print(sum(goodvalue))

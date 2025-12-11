@@ -27,12 +27,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 python3 ${SCRIPT_DIR}/overlap_predict_true.py ${prefix}_golddf_predictdf.tmp $golddf_colnum $golddf_abccol_plus $outname.tmp
 if [ "$golddf_has_colname" = True ]; then
-	echo "golddf_has_colname"
+	#echo "golddf_has_colname"
 	{ head -1 "$golddf"; echo "matchedScore";} | paste - - |cat - $outname.tmp > $outname
+	rm $outname.tmp
 else
-	echo "golddf_no_colname"
+	#echo "golddf_no_colname"
 	mv $outname.tmp $outname
 fi
 
-#rm ${prefix}*tmp 
+rm ${prefix}*tmp 
 

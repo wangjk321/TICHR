@@ -9,9 +9,12 @@ import pyBigWig
 from .preprocess_hic import *
 
 
+
+
 def makeSiteBedFunction(candidatesite,candidateGeneFile,readFileList,gtfile,
                         species='hs',binResolution=100,peakToGeneMaxDistance=100000,
-                        blackregion=None, refgene_file=None,tmpdir='tmp_makeSiteBdg',fixPeakWidth=False, only_promoter_area=100):
+                        blackregion=None, refgene_file=None,tmpdir='tmp_makeSiteBdg',
+                        fixPeakWidth=False, only_promoter_area=100):
     
     codepath = os.path.dirname(os.path.realpath(__file__))
 
@@ -57,7 +60,8 @@ def makeSiteBedFunction(candidatesite,candidateGeneFile,readFileList,gtfile,
                       f"intersectBed -v -wa -a stdin -b {blackregion} > {tmpdir}/candidatesite_final.bed"
             subprocess.run(command, shell=True, check=True)
         else:
-            subprocess.run(f"intersectBed -v -wa -a {candidatesite} -b {blackregion} > {tmpdir}/candidatesite_final.bed" , shell=True, check=True)
+            subprocess.run(f"intersectBed -v -wa -a {candidatesite} -b {blackregion} | sortBed > {tmpdir}/candidatesite_final.bed" , 
+                           shell=True, check=True)
         
         candidatesite_file = tmpdir+"/candidatesite_final.bed"
 
@@ -72,6 +76,9 @@ def makeSiteBdgFunction(candidatesite_file,readFileList,gtfile,coverageMethod,fi
                 spmr = False,species='hs',refgene_file=None,tmpdir='tmp_makeSiteBdg',ifTSSrange=500,
                 quantileref=None,signaltype=None,separatepromoter=False,quantile_method=None,multiBAMmerge="mean"):
     
+    check_bed_vs_genome(candidatesite_file,gtfile)
+
+
     if not refgene_file:
         with open(tmpdir+"/refgene_file.blank.tmp", 'w') as file: pass  # 不写入任何内容
         refgene_file=tmpdir+"/refgene_file.blank.tmp"
@@ -128,10 +135,12 @@ def makeSiteBdgFunction(candidatesite_file,readFileList,gtfile,coverageMethod,fi
                         print(f"Error: Can not read total coverage for file {read_signal_file}")
                         exit()
                 for row in candidatesite_coverage.itertuples():
+
                     if row.end > chromo_info[row.chr]:
                         print(f"Warning: Candidate site [{row.chr}, {row.start}, {row.end}] is out of the range of the file [{read_signal_file}]")
                         candidatesite_coverage.at[row.Index, 'value'] = 0
                     else:
+                        #print(bw.stats(row.chr, row.start, row.end, type="mean")[0])
                         mean_value = bw.stats(row.chr, row.start, row.end, type="mean")[0]
                         if mean_value is None:
                             mean_value = 0
@@ -175,6 +184,8 @@ def makeSiteBdgFunction(candidatesite_file,readFileList,gtfile,coverageMethod,fi
             print("Error: multiBAMmerge can only be specified as [sum] or [mean]")
             exit()
 
+    print("......Finished.")
+
     if quantileref and not signaltype:
         print("......Please specify singaltype as DNase or H3K27ac")
         exit(1)
@@ -212,9 +223,11 @@ def makeWeightFunction(weightType,peakPos,tssPos,rpDecayDistance=10000,fixedFunc
                  hicProcessedData=None,hicRes=50000,geneChr=None,hicProcessedDataType=None,ifUseHiCRef=False,
                  peakToGeneMaxDistance=None, goldWeightDf=None
                  ): 
-    if weightType == 'fixed_function':
+    if weightType == 'fixedFunction':
         #print("using fixed function as the weight for epigenome")
         z = abs(peakPos-tssPos)
+        fixedFunctionType = ixedFunctionType.lower()
+
         if fixedFunctionType == 'sigmoid':
             lamda = -math.log(1/3)*1e5/rpDecayDistance
             weight = 2*math.exp(-lamda*z/1e5)/(1.0+math.exp(-lamda*z/1e5)) 
@@ -235,6 +248,7 @@ def makeWeightFunction(weightType,peakPos,tssPos,rpDecayDistance=10000,fixedFunc
             weight = abs(peakPos-tssPos)
         else:
             print("please give a correct fixedFunctionType")
+            exit(1)
         return(weight)
     elif weightType == 'hic' and hicProcessedData and geneChr and hicProcessedDataType:
         tssHicIndex = int (tssPos / hicRes)
@@ -261,10 +275,10 @@ def makeWeightFunction(weightType,peakPos,tssPos,rpDecayDistance=10000,fixedFunc
 
         return(hicInteractionValue)
     
-    elif weightType == 'gold_weight':
+    elif weightType == 'userWeight':
         """用户指定weight文件, 格式为 chr1,start1,end1,chr2,start2,end2,weight 七列"""
         if goldWeightDf is None:
-            print("XXXXXXX Please give the goldWeightDf for gold_weight")
+            print("XXXXXXX Please give the goldWeightDf for userWeight")
             exit(1)
         else:
             df = pd.read_csv(goldWeightDf, sep='\t', header=None)
@@ -286,7 +300,70 @@ def makeWeightFunction(weightType,peakPos,tssPos,rpDecayDistance=10000,fixedFunc
 
 
     else:
-        print("Please specify the weightType to [hic, fixed_function, gold_weight]")
+        print("Please specify the weightType to [hic, fixedFunction, gold_weight]")
         exit(1)
 
+
+
+def check_bed_vs_genome(bed_file, genome_table):
+    """
+    bed_file: BED3 or BED6
+    genome_table: 2-column TSV: [chrom, length]
+    """
+
+    print(f"Loading genome table: {genome_table}")
+    genome = pd.read_csv(genome_table, sep="\t", header=None, names=["chr", "len"])
+    chrom_sizes = dict(zip(genome.chr, genome.len))
+
+    print(f"Loading BED file: {bed_file}")
+    bed = pd.read_csv(bed_file, sep="\t", header=None)
+
+    # Assume first three columns are chr, start, end
+    bed = bed.iloc[:, :3]
+    bed.columns = ["chr", "start", "end"]
+
+    errors = []
+
+    for idx, row in bed.iterrows():
+        chrom = row.chr
+        start = int(row.start)
+        end = int(row.end)
+
+        # 1. chr 未在 genome table 出现
+        if chrom not in chrom_sizes:
+            errors.append((idx, chrom, start, end, "Chrom_not_in_genome"))
+            continue
+
+        chr_len = chrom_sizes[chrom]
+
+        # 2. start < 0
+        if start < 0:
+            errors.append((idx, chrom, start, end, "Start_less_than_0"))
+
+        # 3. end > chrom size
+        if end > chr_len:
+            errors.append((idx, chrom, start, end, f"End_exceeds_chrom_size({chr_len})"))
+
+        # 4. start >= end
+        if start >= end:
+            errors.append((idx, chrom, start, end, "Start_ge_End"))
+
+    # 输出结果
+    if not errors:
+        print("✔ No BED errors found. All intervals are within genome bounds.")
+    else:
+        print(f"❌ Found {len(errors)} problematic BED entries:\n")
+        for e in errors[:20]:  # 只打印前 20 条
+            print(e)
+
+        raise ValueError(f"Found {len(errors)} problematic BED entries. See bed_errors.tsv for details.")
+    
+        print("\n⚠ Full error list saved to: bed_errors.tsv")
+        err_df = pd.DataFrame(errors, columns=["line", "chr", "start", "end", "error"])
+        err_df.to_csv("bed_errors.tsv", sep="\t", index=False)
+
         
+
+
+
+    

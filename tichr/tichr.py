@@ -111,14 +111,15 @@ class Tichr:
 # 3. ifUseHiCRef：是否处以以reference hic
 
     def proceessHiC(self,hicRes,hicDataType,hicNormType,juicertool=None,
-                    threads=8,contactNorm='default'):
+                    threads=8,contactNorm='default',
+                    hicprefix="observed.VC_SQRT.",hicsuffix=".matrix.gz"):
         print("***Processing hic ...")
         self.hicRes=hicRes
         self.hicProcessedDataType = hicDataType
         self.contactNorm = contactNorm
         self.nomhicdf = gethicfile(self.hicfilepath,hicRes,hicDataType,self.candidateGeneChrList,
                               hicnorm=hicNormType,gt=self.gtfile,juicertool=juicertool,threads=threads,
-                              contactNorm=contactNorm)        
+                              contactNorm=contactNorm,hicprefix=hicprefix,hicsuffix=hicsuffix)        
     
     def weightStructure(self,structureType,structureFile,structureWeight):
         
@@ -148,6 +149,7 @@ class Tichr:
                  given_gamma=1.024238616787792, given_scale = 5.9594510043736655,
                  ref_gamma = 0.87, ref_scale = -4.80 + 11.63 * 0.87, hicmindistance=5000,
                  logRgX=False,setpromoter1=False,ifUseHiCRef=True, goldWeightDf=None, noise_ratio=0,noise_quantile=0):
+        
         
         t1 = time.time()
         # if i % 1000 == 0:
@@ -260,11 +262,14 @@ class Tichr:
                                  given_gamma, given_scale, ref_gamma, ref_scale, 
                                  hicmindistance, logRgX, setpromoter1,ifUseHiCRef,goldWeightDf)
     
-    def computeAllGene(self,weightType,halfDistance=10000,fixedFunctionType='rp-classic',
+    def computeAllGene(self,weightType,halfDistance=10000,fixedFunctionType='exponential',
                  given_gamma=1.024238616787792, given_scale = 5.9594510043736655,
                  ref_gamma = 0.87, ref_scale = -4.80 + 11.63 * 0.87, hicmindistance=5000,
-                 logRgX=False,setpromoter1=False,threads=1,ifUseHiCRef=False, goldWeightDf=None,noise_ratio=0,noise_quantile=0):
-          
+                 logRgX=False,setpromoter1=False,threads=1,ifUseHiCRef=False, 
+                 userWeightFile=None,noise_ratio=0,noise_quantile=0):
+        
+        print("***Computing RgX and Rg")
+        print("***Using "+weightType+" mode")
         RgxDfList = []
         RgList=[]
         numOfGene = self.candidateGeneDF.shape[0]
@@ -277,7 +282,7 @@ class Tichr:
                     fixedFunctionType=fixedFunctionType, given_gamma=given_gamma, 
                     given_scale=given_scale, ref_gamma=ref_gamma, ref_scale=ref_scale, 
                     hicmindistance=hicmindistance, logRgX=logRgX, setpromoter1=setpromoter1, 
-                    ifUseHiCRef=ifUseHiCRef, goldWeightDf=goldWeightDf,noise_ratio=noise_ratio,noise_quantile=noise_quantile
+                    ifUseHiCRef=ifUseHiCRef, goldWeightDf=userWeightFile,noise_ratio=noise_ratio,noise_quantile=noise_quantile
                 )
                 RgxDfList.append(genei_Rgx_df)
                 RgList.append(geneiWEscoreSum)
@@ -287,7 +292,7 @@ class Tichr:
                                             fixedFunctionType=fixedFunctionType, given_gamma=given_gamma,
                                             given_scale=given_scale, ref_gamma=ref_gamma, ref_scale=ref_scale, 
                                             hicmindistance=hicmindistance, logRgX=logRgX, setpromoter1=setpromoter1,
-                                            ifUseHiCRef=ifUseHiCRef, goldWeightDf=goldWeightDf) 
+                                            ifUseHiCRef=ifUseHiCRef, goldWeightDf=userWeightFile) 
                         for i in range(numOfGene)]
                 
                 # 收集结果
@@ -308,15 +313,17 @@ class Tichr:
         self.RgxDf = RgxDf
         self.RgDf = RgDf
 
+        print("***Finished")
+
     
     def clean(self,onlytmp=False):
         if os.path.exists(self.tmpdir):
                 shutil.rmtree(self.tmpdir)
 
         if onlytmp:
-            print("clean tmp")
+            print("clean only tmp directory.")
         else:
-            print("clean all")
+            print("clean all attribute to release memory.")
             self.candidatesite_coverage = None
             self.nomhicdf = None
             self.RgxDf = None
@@ -324,10 +331,12 @@ class Tichr:
 
         
         
-    def save(self,name="output"):
+    def save(self,outname="output",header=False):
         print("***Save RgX and Rg to tsv tables.")
-        self.RgxDf.to_csv(name+"_RgxDf.tsv.gz",header=None,sep="\t",index=None,compression="gzip")
-        self.RgDf.to_csv(name+"_RgDf.tsv.gz",header=None,sep="\t",index=None,compression="gzip")
+        self.RgxDf.to_csv(outname+"_RgxDf.tsv.gz",header=header,sep="\t",index=None,compression="gzip")
+        self.RgDf.to_csv(outname+"_RgDf.tsv.gz",header=header,sep="\t",index=None,compression="gzip")
+
+        print("......Saved to "+outname+"_RgxDf.tsv.gz"+" and "+outname+"_RgDf.tsv.gz")
 
     
     
