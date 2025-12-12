@@ -68,7 +68,7 @@ tichr --help
 2. **Python Module** — Advanced users can import TICHR as a Python package and use its functions programmatically. For example:
 
 ``` python
-from tichr import *
+from tichr.tichr import *
 ```
 
 ## Document and tutorial 

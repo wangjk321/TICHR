@@ -46,6 +46,7 @@ def cut_distance(df,rgdf,maxdis=100000): #df是RgxDf
 
 #选取变化最大的基因
 def getQprc(RgDF_Ctrl,RgDF_Treat,RgxDF_Ctrl,RgxDF_Treat,selecttype="rg",thresh=0.8,returnDF=False):
+    print("Computing at quantile "+ str(thresh))
     changeRgxDF = pd.DataFrame()
     changeRgxDF["geneID"] = RgxDF_Ctrl[4]
     changeRgxDF["change_epix"] = RgxDF_Treat[3] - RgxDF_Ctrl[3]
@@ -151,8 +152,9 @@ def randomGene(RgDF_Ctrl,RgDF_Treat,selectbool,n=100,seed=42):
 class DiffEvent:
     def __init__(self,RgDF_Ctrl_file,RgxDF_Ctrl_file,RgDF_Treat_file,RgxDF_Treat_file,maxdistance=500000,
                  outdir=os.getcwd(),inputtype="file",seed=42, pdf=True):
+        if not os.path.exists(outdir): os.makedirs(outdir)
         self.seed=seed
-        print(inputtype)
+        print("The input type is file or pandas.DataFrame: "+inputtype)
         if inputtype=="file":
             RgDF_Ctrl_raw = pd.read_csv(RgDF_Ctrl_file,header=None,sep="\t")
             RgxDF_Ctrl_raw = pd.read_csv(RgxDF_Ctrl_file,header=None,sep="\t")
@@ -165,6 +167,7 @@ class DiffEvent:
             RgxDF_Treat_raw = RgxDF_Treat_file
 
         self.maxdistance = maxdistance
+        print("Filter the S2G regulations within the max distance of "+str(maxdistance)+" bp")
         self.RgxDF_Ctrl, self.RgDF_Ctrl = cut_distance(RgxDF_Ctrl_raw,RgDF_Ctrl_raw,maxdis=maxdistance)
         self.RgxDF_Treat, self.RgDF_Treat = cut_distance(RgxDF_Treat_raw,RgDF_Treat_raw,maxdis=maxdistance)
         self.outdir = outdir
@@ -179,20 +182,21 @@ class DiffEvent:
                 pltoneroc(degbool,abschange,label,linecolor)
         else:
             if type=="PRC":
-                showAUPRC(degbool,abschange,label)
+                showPRC(degbool,abschange,label)
             elif type=="ROC":
                 showROC(degbool,abschange,label)
 
     def quantilePRC(self,selectGeneType="rg",label="label",plotbg=True,plotpvalue='wilcox',
                     thlist=[0.99, 0.98, 0.95, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0],bgalpha=0.5,
                     plotylim=[0,0.7],plotallp=False):
+        
+        print("Plot the PRC curves under various quantile threshold")
         plt.figure(figsize=(5.5,3.8))
         collist = [mcolors.to_hex(plt.cm.get_cmap('Spectral_r')(i)) for i in np.linspace(0, 1, len(thlist))]
         i=0
         auprclist=[]
         geneSelectFinalList = []
         for threshhold in thlist:
-
             geneSelectFinal = getQprc(self.RgDF_Ctrl,self.RgDF_Treat,self.RgxDF_Ctrl,self.RgxDF_Treat,
                            selecttype=selectGeneType,thresh=threshhold,)
             abschange, degbool = benchmarkvalue(self.RgDF_Ctrl[geneSelectFinal],self.RgDF_Treat[geneSelectFinal])
@@ -208,6 +212,9 @@ class DiffEvent:
         if self.outdir:
             plt.savefig(self.outdir+"/"+label+"_select"+selectGeneType+"_multi_prcSelect.pdf")
         
+        print("Finish...")
+
+        print("Plot the background PRC curves under various quantile threshold")
         plt.figure(figsize=(5,3.8))
         if plotbg:
             prc_random_lower = []
@@ -216,7 +223,7 @@ class DiffEvent:
             wilcoxp_list = []
             j=0
             for threshhold in thlist:
-                print(threshhold)
+                print("Computing background at quantile "+ str(threshhold))
                 prclist,recall_median,precision_median,recall_common,precision_q5_interp,precision_q95_interp = \
                 randomGene(self.RgDF_Ctrl,self.RgDF_Treat,geneSelectFinalList[j],seed=self.seed)
                 prc_random_lower.append(np.percentile(prclist, 5))
@@ -225,8 +232,13 @@ class DiffEvent:
                 plt.fill_between(recall_common, precision_q5_interp, precision_q95_interp, 
                     color=collist[j], alpha=bgalpha, label=selectGeneType+"_q"+str(threshhold))
                 
-                _,wilcoxp = wilcoxon([x - auprclist[j] for x in prclist],alternative='less')
-                _,ttestp = ttest_1samp(prclist, auprclist[j], alternative='less')
+                diffprc = [x - auprclist[j] for x in prclist]
+                if np.allclose(diffprc, 0):
+                    wilcoxp = 1
+                    ttestp = 1
+                else:
+                    _,wilcoxp = wilcoxon([x - auprclist[j] for x in prclist],alternative='less')
+                    _,ttestp = ttest_1samp(prclist, auprclist[j], alternative='less')
                 ttestp_list.append(ttestp)
                 wilcoxp_list.append(wilcoxp)
 
@@ -240,7 +252,10 @@ class DiffEvent:
         if self.outdir:
             plt.savefig(self.outdir+"/"+label+"_select"+selectGeneType+"_multi_prcBg.pdf")
             # plt.savefig(self.outdir+"/"+label+"_select"+selectGeneType+"_multi_prcBg.png",dpi=300)
-        
+
+        print("Finish...")
+
+        print("Plot the observed AUPRC versus background AUPRC under various quantile threshold")
         if plotallp:
             plt.figure(figsize=(5.4,3.8))
         else:
@@ -254,6 +269,7 @@ class DiffEvent:
         stat_handles = []
 
         if plotpvalue == "wilcox":
+            print("Adding wilcox p values...")
             medianp=np.median(np.nan_to_num(wilcoxp_list, nan=1.0))
             line_medianp,=plt.plot([],[]," ",label="median p="+str("{:.1e}".format(medianp)))
             for i,t in enumerate(thlist):
@@ -261,6 +277,7 @@ class DiffEvent:
                 dummy, = plt.plot([],[]," ", label="q"+str(t)+" p="+pvalue)
                 stat_handles.append(dummy)
         elif plotpvalue == "ttest":
+            print("Adding ttest p values...")
             medianp=np.median(np.nan_to_num(ttestp_list, nan=1.0))
             line_medianp,=plt.plot([],[]," ",label="median p="+str("{:.1e}".format(medianp)))
             for i,t in enumerate(thlist):
@@ -282,6 +299,8 @@ class DiffEvent:
         plt.tight_layout()
         if self.outdir:
             plt.savefig(self.outdir+"/"+label+"_select"+selectGeneType+"_multi_auprcSelectVSbg.pdf")
+
+        print("Finish...")
     
     def selectgene(self,selectGeneType="rg",label="label",threshhold=0.9,plot=True,plotbg=True):      
         plt.figure(figsize=(3.2,3.5))
@@ -310,9 +329,12 @@ class DiffEvent:
         plt.legend(loc='best')
         plt.tight_layout()
         if self.outdir:
-            plt.savefig(self.outdir+"/"+label+"_select"+selectGeneType+"_q"+str(threshhold)+"_prcSelectVSbg.pdf")
-            # plt.savefig(self.outdir+"/"+label+"_select"+selectGeneType+"_q"+str(threshhold)+"_prcSelectVSbg.png",dpi=300)
+            if self.pdf:
+                plt.savefig(self.outdir+"/"+label+"_select"+selectGeneType+"_q"+str(threshhold)+"_prcSelectVSbg.pdf")
+            else:
+                plt.savefig(self.outdir+"/"+label+"_select"+selectGeneType+"_q"+str(threshhold)+"_prcSelectVSbg.png",dpi=300)
         
+
         _,wilcoxp = wilcoxon([x - selectprc for x in prclist],alternative='less')
         _,ttestp = ttest_1samp(prclist, selectprc, alternative='less')
         print(wilcoxp,ttestp)
@@ -333,7 +355,7 @@ class DiffEvent:
     
     def diffgene(self,selectGeneType="rg",quantiTh=0.9,selectQuantile=True,
                  selectDeg=True,selectFc=True,fcTh=0.5,
-                 selectRank="same",sameTh=0.9,diffTh=0.9,plotxlim=None,plotxlabel=None,
+                 selectRank="sumrank0",selectRankTh=0.9,plotxlim=None,plotxlabel=None,
                  title="title"):
         
         # 选定特征的前百分之几
@@ -354,7 +376,7 @@ class DiffEvent:
         pointsize = np.interp(geneFDR, (geneFDR.min(), geneFDR.max()), (1, 20))
         
         plt.figure(figsize=(4.5,4))
-        if selectRank=="diff":
+        if selectRank=="diffrank":
             scatter_with_rank(selectTypeChange,geneFC,"diffrank",s=pointsize,alpha=0.3,ifcolbar=False)
         else:
             scatter_with_rank(selectTypeChange,geneFC,"sumrank0",s=pointsize,alpha=0.3,ifcolbar=False)        
@@ -369,10 +391,12 @@ class DiffEvent:
             selectFcBool = abs(RgDFchange["change_fc"+selectGeneType.removeprefix("fc")])>fcTh
             totalbool = totalbool & selectFcBool
             
-        if selectRank == "same": #变化趋势
-            rankBool = abs(makesumrank_center0(RgDFchange["change_"+selectGeneType], RgDFchange[6]))>sameTh
-        elif selectRank == "diff":
-            rankBool = abs(makediffrank(RgDFchange["change_"+selectGeneType], RgDFchange[6]))>diffTh
+        
+        if selectRank == "diffrank":
+            rankBool = abs(makediffrank(RgDFchange["change_"+selectGeneType], RgDFchange[6]))>selectRankTh
+        else: #变化趋势
+            rankBool = abs(makesumrank_center0(RgDFchange["change_"+selectGeneType], RgDFchange[6]))>selectRankTh
+
         totalbool = totalbool & rankBool
         
         legend_sizes = [0.05,1e-5,1e-10]  # 代表性点大小
@@ -404,19 +428,19 @@ class DiffEvent:
         
         if selectDeg:
             plt.axhline(-1, color='r', linestyle='--',alpha=0.5,)  
-            plt.axhline(1, color='r', linestyle='--',label="abs(geneFC)>1",alpha=0.5,) 
+            plt.axhline(1, color='r', linestyle='--',label="|geneFC|>1",alpha=0.5,) 
         
         plt.axvline(-abs(selectTypeChange).quantile(quantiTh), color='b', linestyle='--',alpha=0.5)  # 画一条 y=-1 的红色虚线
         plt.axvline(abs(selectTypeChange).quantile(quantiTh),
-                    color='b', linestyle='--',label="Quantile>"+str(quantiTh),alpha=0.5) # 画一条 y=-1 的红色虚线
+                    color='b', linestyle='--',label="|\u0394Rg|>quantile"+str(quantiTh),alpha=0.5) # 画一条 y=-1 的红色虚线
         if selectFc:
             plt.scatter(RgDFchange[selectFcBool]["change_"+selectGeneType],
                 RgDFchange[selectFcBool][6],s=pointsize[selectFcBool],
-                        alpha=0.5,label="abs(FC)>0.5",edgecolors='none')
+                        alpha=0.5,label="|\u0394Rg|>"+str(fcTh),edgecolors='none')
         if selectRank in ["same","diff"]:
             plt.scatter(RgDFchange[rankBool]["change_"+selectGeneType],
                         RgDFchange[rankBool][6],s=pointsize[rankBool],alpha=0.5,
-                        color="g",label="Trends",edgecolors='none')
+                        color="g",label=selectRank+">"+str(selectRankTh),edgecolors='none')
             
         plt.scatter(selectTypeChange,geneFC,s=pointsize,
                     facecolors='none', edgecolors='grey',alpha=0.5)
@@ -566,8 +590,10 @@ class DiffEvent:
         plt.legend(bbox_to_anchor=(1, 0.5),loc='center left',)
         plt.tight_layout()
         if self.outdir:
-            #plt.savefig(self.outdir+"/"+title+"_select"+selectRgxType+"_diffs2g_full.pdf")
-            plt.savefig(self.outdir+"/"+title+"_select"+selectRgxType+"_diffs2g_full.png",dpi=300)
+            if self.pdf:
+                plt.savefig(self.outdir+"/"+title+"_select"+selectRgxType+"_diffs2g_full.pdf")
+            else:
+                plt.savefig(self.outdir+"/"+title+"_select"+selectRgxType+"_diffs2g_full.png",dpi=300)
         
         self.rgxTotalBool = rgxTotalBool
         self.finalep = RgxDFchange[rgxTotalBool]

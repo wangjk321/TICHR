@@ -84,7 +84,6 @@ def prepare_select_by_rank(mergedfile, basedon = "rg",title="title",
                            negshow="diffrank",negshowabs=False,posshow="sumrank",posshowabs=False,
                            outname=None,plotSelect=False,plotscatter=True,
                            negselect="diffrank",negselectabs=False,posselect="sumrank",posselectabs=False,
-                           outprefix="Sample"
                            ):
     if filetype=="file":
         mergedDF = pd.read_csv(mergedfile,header=None,sep="\t")
@@ -136,7 +135,7 @@ def prepare_select_by_rank(mergedfile, basedon = "rg",title="title",
 
         # 保存
         plt.tight_layout()
-        plt.savefig(f"{outprefix}_scatter.pdf")
+        plt.savefig(f"{outname}_scatter.pdf")
 
     '''
     plot_scatter_with_fit(meanRg,meanTPM,s=5,title=title,
@@ -154,14 +153,14 @@ def prepare_select_by_rank(mergedfile, basedon = "rg",title="title",
                        select_label="Rg-TPM",predict_label="\u0394Rg-logFC(TPM)",
                        negshow=negshow,negshowabs=negshowabs,posshow=posshow,posshowabs=posshowabs,
                        outname=outname,plotSelect=plotSelect,
-                       negselect=negselect,negselectabs=negselectabs,posselect=posselect,posselectabs=posselectabs,outprefix=outprefix)
+                       negselect=negselect,negselectabs=negselectabs,posselect=posselect,posselectabs=posselectabs)
     elif basedon == "deltarg":
         select_by_rank(changeRg,changeTPM,meanRg,meanTPM,
                        labellist=[label+" \u0394Rg","Gene logFC"], negative_cutoff=negative_cutoff,positive_cutoff=positive_cutoff,
                        predict_label="Rg-TPM",select_label="\u0394Rg-logFC(TPM)",
                        negshow=negshow,negshowabs=negshowabs,posshow=posshow,posshowabs=posshowabs,
                         outname=outname,plotSelect=plotSelect,
-                       negselect=negselect,negselectabs=negselectabs,posselect=posselect,posselectabs=posselectabs,outprefix=outprefix)
+                       negselect=negselect,negselectabs=negselectabs,posselect=posselect,posselectabs=posselectabs)
         
 # select_rg, 所选的Rg值，比如ctrl和treat平均的Rg值
 # select_tpm, 所选的基因表达值，比如ctrl和treat平均的TPM值
@@ -175,7 +174,7 @@ def select_by_rank(select_rg,select_tpm,predict_rg,predict_tpm,
                    negselect="diffrank",negselectabs=False,posselect="sumrank",posselectabs=False,
                    negshowabs=False,
                    negshow="diffrank",posshow="sumrank",posshowabs=False,
-                   outname=None,outprefix=None):
+                   outname=None):
     rank_select_rg = select_rg.rank(ascending= False)
     rank_select_tpm= select_tpm.rank(ascending= False)
     diffrank_select = (rank_select_tpm-rank_select_rg)/len(rank_select_tpm)
@@ -200,7 +199,6 @@ def select_by_rank(select_rg,select_tpm,predict_rg,predict_tpm,
     if negselectabs:
         negselect_score = abs(negselect_score)
 
-    print(negselect_score.describe())
     value_bool = negselect_score > negative_cutoff
     
     
@@ -262,7 +260,7 @@ def select_by_rank(select_rg,select_tpm,predict_rg,predict_tpm,
         plt.savefig(outname+"_negative.pdf")
         plt.savefig(outname+"_negative.png",dpi=300)
     plt.show()
-    plt.savefig(f"{outprefix}_diffrank_top_correlated.pdf")
+    plt.savefig(f"{outname}_diffrank_top_correlated.pdf")
     #plt.savefig(outname+"_diffrank.pdf")
     
     ##############2.根据sumrank选择positive regulation##########
@@ -278,7 +276,6 @@ def select_by_rank(select_rg,select_tpm,predict_rg,predict_tpm,
     if posselectabs:
         posselect_score = abs(posselect_score)
 
-    print(posselect_score.describe())
     value_bool2 = posselect_score > positive_cutoff
 
     fig = plt.figure(figsize=(8, 3.8))
@@ -338,7 +335,7 @@ def select_by_rank(select_rg,select_tpm,predict_rg,predict_tpm,
         plt.savefig(outname+"_positive.pdf")
         plt.savefig(outname+"_positive.png",dpi=300)
     plt.show()
-    plt.savefig(f"{outprefix}_sumrank_top_correlated.pdf")
+    plt.savefig(f"{outname}_sumrank_top_correlated.pdf")
     #plt.savefig(outname+"_sumrank.pdf")
 
 
@@ -362,7 +359,7 @@ def extractNeg(mergedRgFile, mergedRgxFile, rgctrl_col_num=9, rgtreat_col_num=10
                rgx_geneID_col=4,rgx_ctrl_col=11,rgx_treat_col=13,negboolRgX=None,iteration=True,outname="outname",
                showInteration=False,iteration_count=0,outdir="identify_context",filetype="file",corrtype="pearson",
                extractType="negative",minRgxRatio=0,epifdr=False,rgxFDR_cutoff=0.05,
-               geneFDR_cutoff=0.1,geneFC_cutoff=0.5,rgxFC_cutoff=0.2,outprefix="Sample"):
+               geneFDR_cutoff=0.1,geneFC_cutoff=0.5,rgxFC_cutoff=0.2):
     
     if not os.path.exists(outdir): os.makedirs(outdir)
 
