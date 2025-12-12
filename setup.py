@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='tichr',
-    version='0.1.5',
+    version='0.1.7',
     author='Jiankang Wang',
     author_email='wangjk321@gmail.com',
     description='TICHR: A computational tool designed to investigate transcriptional regulation',
