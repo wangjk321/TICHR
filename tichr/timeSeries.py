@@ -5,6 +5,9 @@ import os
 
 def plot_one_gene(file_path, timepoint_counts, title, time_points=None, outdir=None):
 
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+
     # 固定时间点顺序
     if time_points==None:
         time_points=[]
@@ -73,7 +76,7 @@ def plot_one_gene(file_path, timepoint_counts, title, time_points=None, outdir=N
 import pandas as pd
 import numpy as np
 
-def lfc_two_timepoints(rgx1, rgx2, extra_df=None, extra_name=None):
+def lfc_two(rgx1, rgx2, extra_df=None, extra_name=None):
     rgx1df = pd.read_csv(rgx1, sep="\t", header=None, names=[
         "peakChr", "peakStart", "peakEnd", "epigenomeActivity",
         "geneSymbol", "geneChr", "geneStart", "geneEnd", "geneStrand",
@@ -300,7 +303,7 @@ def calculate_lfc(df, features, timepoint_counts):
 
     return df_final, lfc_cols_list
 
-def lfc_multi_timepoints(RgxDfs, extra_file=None, extra_name=None, time_points=None):
+def lfc_multi(RgxDfs, extra_file=None, extra_name=None, time_points=None):
     #建一个基础的df，后面对它左连接
     rgx1df = pd.read_csv(RgxDfs[0], sep="\t", header=None, names=[
         "peakChr", "peakStart", "peakEnd", "epigenomeActivity",

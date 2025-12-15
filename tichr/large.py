@@ -15,15 +15,15 @@ from .preprocess_hic import *
 
 class largescale:
     def __init__(self,epiFile,genefile,hicFile,gt,hicRes=25000):
-        self.dhs_df = pd.read_csv(epiFile,sep="\t")
-        self.gene_expr_df = pd.read_csv(genefile,sep="\t")
+        self.epiDf = pd.read_csv(epiFile,sep="\t")
+        self.exprDf = pd.read_csv(genefile,sep="\t")
         self.hicRes = hicRes
-        self.nomhicdf = gethicfile(hicFile,hicRes,'rawhic_sparse',list(self.gene_expr_df["chr"].unique()),
+        self.nomhicdf = gethicfile(hicFile,hicRes,'rawhic_sparse',list(self.exprDf["chr"].unique()),
                                 hicnorm="VC_SQRT",gt=gt,threads=12,
-                                further_normalize_type="no_further")
+                                contactNorm="default")
     
     def calculate_importance(self,gene_row,method="Expon",maxdistance=200000,threads=8,halfDistance=10000):
-        dhs_df=self.dhs_df
+        epiDf=self.epiDf
         gene_chr = gene_row["chr"]
         gene_tss = int(gene_row["tss"])
         gene_symbol = gene_row["geneSymbol"]
@@ -33,9 +33,9 @@ class largescale:
         region_end = gene_tss + maxdistance
         
         # 查找上下游 200kb 范围内的 DHS 位点
-        dhs_in_range = dhs_df[(dhs_df["chr"] == gene_chr) & 
-                            (dhs_df["start"] <= region_end) & 
-                            (dhs_df["end"] >= region_start)]
+        dhs_in_range = epiDf[(epiDf["chr"] == gene_chr) & 
+                            (epiDf["start"] <= region_end) & 
+                            (epiDf["end"] >= region_start)]
         numpeak = len(dhs_in_range)
         if numpeak <1:
             return [], []
@@ -244,7 +244,7 @@ class largescale:
         return(result,[prediction_list])
     
     def testfun(self,):
-        self.calculate_importance(self.gene_expr_df.loc[0],method="Expon")
+        self.calculate_importance(self.exprDf.loc[0],method="Expon")
 
     def process(self, method="Expon",maxdistance=200000,threads=8,halfDistance=10000,
                 outname="outname"):
@@ -254,7 +254,7 @@ class largescale:
             with ProcessPoolExecutor(threads) as executor:
                 calculate_with_method = partial(self.calculate_importance, method=method,maxdistance=maxdistance,
                                                 threads=threads,halfDistance=halfDistance)
-                futures = {executor.submit(calculate_with_method, row): row for _, row in self.gene_expr_df.iterrows()}
+                futures = {executor.submit(calculate_with_method, row): row for _, row in self.exprDf.iterrows()}
 
                 # 使用 tqdm 包装 as_completed 以显示进度条
                 for future in tqdm(as_completed(futures), total=len(futures), desc="Processing genes"):
@@ -267,12 +267,12 @@ class largescale:
             # 转换结果为 DataFrame
             importance_df = pd.DataFrame(results)
             prediction_df = pd.DataFrame(prediction_results)
-            prediction_df.columns = self.gene_expr_df.columns
+            prediction_df.columns = self.exprDf.columns
 
         elif method in ["HiC+XGB","Expon+XGB","XGB"]:
             results = []
             prediction_results = []
-            for _, gene_row in tqdm(self.gene_expr_df.iterrows(), total=len(self.gene_expr_df), desc="Processing genes"):
+            for _, gene_row in tqdm(self.exprDf.iterrows(), total=len(self.exprDf), desc="Processing genes"):
                 output = self.calculate_importance(gene_row, method=method,maxdistance=maxdistance,
                                                 threads=threads,halfDistance=halfDistance)
                 results.extend(output[0])
@@ -280,7 +280,7 @@ class largescale:
             
             importance_df = pd.DataFrame(results)
             prediction_df = pd.DataFrame(prediction_results)
-            prediction_df.columns = self.gene_expr_df.columns
+            prediction_df.columns = self.exprDf.columns
         
         importance_df.to_csv(outname+"_"+method+"_importance.tsv", index=False,sep="\t")
         prediction_df.to_csv(outname+"_"+method+"_predicted.tsv", index=False,sep="\t")
@@ -300,8 +300,8 @@ warnings.filterwarnings("ignore")
 from sklearn.cluster import KMeans
 from sklearn.metrics import adjusted_rand_score
 
-def dimensionality_reduction_plot(df, method='UMAP',label="Gene expression",
-                                  seed=40,usePCAkmean=True,legend=False):
+def dimensionality_reduction_plot(df,cellDF, method='UMAP',label="Gene expression",k=15,
+                                  seed=40,usePCAkmean=True,legend=False,outname="outname"):
     # 提取基因表达值部分 (从第5列开始)
     data = df.iloc[:, 5:]
 
@@ -325,13 +325,13 @@ def dimensionality_reduction_plot(df, method='UMAP',label="Gene expression",
     tissue_colors = cellDF.loc[data.columns, 'TISSUE'] 
     
     if not usePCAkmean:
-        kmeans = KMeans(n_clusters=15, random_state=seed)
+        kmeans = KMeans(k=15, random_state=seed)
         predicted_labels = kmeans.fit_predict(embedding)
     else:
         model2 = PCA(n_components=30,random_state=seed)
         embedding2 = model2.fit_transform(data_scaled)
         
-        kmeans = KMeans(n_clusters=15, random_state=seed)
+        kmeans = KMeans(k=15, random_state=seed)
         predicted_labels = kmeans.fit_predict(embedding2)
     
     # 计算 ARI
@@ -347,7 +347,10 @@ def dimensionality_reduction_plot(df, method='UMAP',label="Gene expression",
     colors = tissue_colors.map(color_map)
 
     # 绘图
-    plt.figure(figsize=(3, 3.2))
+    if legend:
+        plt.figure(figsize=(5, 3.5))
+    else:
+        plt.figure(figsize=(3, 3.2))
     plt.scatter(embedding[:, 0], embedding[:, 1], c=colors, alpha=0.7,)
     #plt.text(0.5,0.9,f"ARI Score: {ari:.3f}",transform=plt.gca().transAxes,fontsize=12)
     
@@ -367,5 +370,5 @@ def dimensionality_reduction_plot(df, method='UMAP',label="Gene expression",
     plt.title(f'{label}',fontsize=14)
     #plt.legend()
     plt.tight_layout()
-    plt.savefig("/home/wang/Tichr/2025May/pdf/fig6/RED-umap/"+label+".pdf")
+    plt.savefig(outname+".pdf")
     return(ari)

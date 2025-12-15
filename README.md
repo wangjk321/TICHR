@@ -73,7 +73,7 @@ from tichr.tichr import *
 
 ## Document and tutorial 
 
-You can find a complete tutorial in https://tichr.readthedocs.io/
+**You can find a complete tutorial in https://tichr.readthedocs.io/**
 
 Although the individual functions of TICHR were described separately, they could be streamlined into a typical workflow:
 
@@ -82,6 +82,19 @@ Although the individual functions of TICHR were described separately, they could
 </p>
 
 Deposited Data for the TICHR Project: https://zenodo.org/records/17629590
+
+## Supported data types
+
+1. **For the core computation functions of TICHR**
+   - **ChIP-seq**: Supported input formats include `BAM`, `bigWig`, and `bedGraph`.
+   - **Hi-C**: Supported input formats include `.hic` (Juicer), `.matrix.gz` (dense matrix), and other popular Hi-C formats such as `cool`.
+   - **RNA-seq**: A tab-separated expression table.
+
+2. **For downstream analyses in TICHR**
+   - **RgX table files** representing site-to-gene (S2G) regulation.
+   - **Rg table files** representing gene-level regulation.
+   - Other related input files required by specific downstream modules.
+
 
 ## Contact information
 You can open an issue in this repository, or contact the developer (wangjk321@gmail.com)
