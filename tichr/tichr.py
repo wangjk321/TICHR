@@ -266,7 +266,7 @@ class Tichr:
                  given_gamma=1.024238616787792, given_scale = 5.9594510043736655,
                  ref_gamma = 0.87, ref_scale = -4.80 + 11.63 * 0.87, hicmindistance=5000,
                  logRgX=False,setpromoter1=False,threads=1,ifUseHiCRef=False, 
-                 userWeightFile=None,noise_ratio=0,noise_quantile=0):
+                 userWeightFile=None,noise_ratio=0,noise_quantile=0,Rghead=None):
         
         print("***Computing RgX and Rg")
         print("***Using "+weightType+" mode")
@@ -307,7 +307,7 @@ class Tichr:
         # RgDF -> RgDf
         RgDf = self.candidateGeneDF.copy()
         # 加了header，和RgxDf保持一致
-        RgDf.columns = ["geneChr",'geneStart','geneEnd','geneSymbol','geneID','geneStrand']
+        RgDf.columns = Rghead #["geneChr",'geneStart','geneEnd','geneSymbol','geneID','geneStrand']
         RgDf["Rg"] = RgList
 
         self.RgxDf = RgxDf

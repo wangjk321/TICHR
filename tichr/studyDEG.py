@@ -11,17 +11,17 @@ from .PRC_ROC import *
 
 
 
-def benchmarkvalue(RgDF_Ctrl,RgDF_Treat,degtype="all"):
+def benchmarkvalue(RgDF_Ctrl,RgDF_Treat,degtype="all",absfdr=1,padj=0.05):
     #meanRg = (np.log1p(RgDF_Treat[9]) + np.log1p(RgDF_Ctrl[9]))/2
     #meanTPM = (RgDF_Ctrl[8] + RgDF_Treat[8])/2
     deltaRg = np.log1p(RgDF_Treat[9]) -  np.log1p(RgDF_Ctrl[9])
     #deltaTPM = RgDF_Ctrl[6]
     if degtype=="all":
-        degbool = (abs(RgDF_Ctrl[6])>1) & (RgDF_Ctrl[7]<0.05)
+        degbool = (abs(RgDF_Ctrl[6])>absfdr) & (RgDF_Ctrl[7]<padj)
     elif degtype=="up":
-        degbool = (RgDF_Ctrl[6])>1 & (RgDF_Ctrl[7]<0.05)
+        degbool = (RgDF_Ctrl[6])>absfdr & (RgDF_Ctrl[7]<padj)
     elif degtype=="down":
-        degbool = (RgDF_Ctrl[6])<-1 & (RgDF_Ctrl[7]<0.05)
+        degbool = (RgDF_Ctrl[6])<-absfdr & (RgDF_Ctrl[7]<padj)
     else:
         exit(1)
     
@@ -40,8 +40,6 @@ def cut_distance(df,rgdf,maxdis=100000): #df是RgxDf
     cutrgdf.reset_index(drop=True, inplace=True)
     
     return(cutdf,cutrgdf)
-
-
 
 
 #选取变化最大的基因
@@ -103,7 +101,7 @@ def getQprc(RgDF_Ctrl,RgDF_Treat,RgxDF_Ctrl,RgxDF_Treat,selecttype="rg",thresh=0
         return(geneSelectFinal,RgDFchange,changeRgxDF)
     
 
-def randomGene(RgDF_Ctrl,RgDF_Treat,selectbool,n=100,seed=42):
+def randomGene(RgDF_Ctrl,RgDF_Treat,selectbool,n=100,seed=42,absfdr=1,padj=0.05):
     np.random.seed(seed)
     prclist=[] #长度为100
     precisionlist=[]
@@ -113,7 +111,8 @@ def randomGene(RgDF_Ctrl,RgDF_Treat,selectbool,n=100,seed=42):
         shuffledBool = np.random.permutation(selectbool.values)
 
         abschange_random, degbool_random = benchmarkvalue(RgDF_Ctrl[shuffledBool],
-                                                          RgDF_Treat[shuffledBool])
+                                                          RgDF_Treat[shuffledBool],
+                                                          absfdr=absfdr,padj=padj)
         prclist.append(average_precision_score(degbool_random, abschange_random))
 
         precision, recall, _ = precision_recall_curve(
@@ -151,7 +150,7 @@ def randomGene(RgDF_Ctrl,RgDF_Treat,selectbool,n=100,seed=42):
 
 class DiffEvent:
     def __init__(self,RgDF_Ctrl_file,RgxDF_Ctrl_file,RgDF_Treat_file,RgxDF_Treat_file,maxdistance=500000,
-                 outdir=os.getcwd(),inputtype="file",seed=42, pdf=True):
+                 outdir=os.getcwd(),inputtype="file",seed=42, pdf=True,absfdr=1,padj=0.05):
         if not os.path.exists(outdir): os.makedirs(outdir)
         self.seed=seed
         print("The input type is file or pandas.DataFrame: "+inputtype)
@@ -166,6 +165,8 @@ class DiffEvent:
             RgDF_Treat_raw = RgDF_Treat_file
             RgxDF_Treat_raw = RgxDF_Treat_file
 
+        self.absfdr=absfdr
+        self.padj=padj
         self.maxdistance = maxdistance
         print("Filter the S2G regulations within the max distance of "+str(maxdistance)+" bp")
         self.RgxDF_Ctrl, self.RgDF_Ctrl = cut_distance(RgxDF_Ctrl_raw,RgDF_Ctrl_raw,maxdis=maxdistance)
@@ -174,7 +175,8 @@ class DiffEvent:
         self.pdf=pdf
     
     def predictDEG(self,type="PRC",label="label",custom=False,linecolor=None,degtype='all'):
-        abschange, degbool = benchmarkvalue(self.RgDF_Ctrl,self.RgDF_Treat,degtype=degtype)
+        abschange, degbool = benchmarkvalue(self.RgDF_Ctrl,self.RgDF_Treat,degtype=degtype,
+                                            absfdr=self.absfdr,padj=self.padj)
         if custom:
             if type=="PRC":
                 pltoneprc(degbool,abschange,label,linecolor)
@@ -199,7 +201,8 @@ class DiffEvent:
         for threshhold in thlist:
             geneSelectFinal = getQprc(self.RgDF_Ctrl,self.RgDF_Treat,self.RgxDF_Ctrl,self.RgxDF_Treat,
                            selecttype=selectGeneType,thresh=threshhold,)
-            abschange, degbool = benchmarkvalue(self.RgDF_Ctrl[geneSelectFinal],self.RgDF_Treat[geneSelectFinal])
+            abschange, degbool = benchmarkvalue(self.RgDF_Ctrl[geneSelectFinal],self.RgDF_Treat[geneSelectFinal],
+                                                absfdr=self.absfdr,padj=self.padj)
             pltoneprc(degbool,abschange,selectGeneType+"_q"+str(threshhold)+":",collist[i])
             auprclist.append(average_precision_score(degbool,abschange))
             geneSelectFinalList.append(geneSelectFinal)
@@ -309,7 +312,8 @@ class DiffEvent:
         if not plot:
             return(geneSelectFinal)
         
-        abschange, degbool = benchmarkvalue(self.RgDF_Ctrl[geneSelectFinal],self.RgDF_Treat[geneSelectFinal])
+        abschange, degbool = benchmarkvalue(self.RgDF_Ctrl[geneSelectFinal],self.RgDF_Treat[geneSelectFinal],
+                                            absfdr=self.absfdr,padj=self.padj)
         selectprc = average_precision_score(degbool,abschange)
         
         pltoneprc(degbool,abschange,selectGeneType+"_q"+str(threshhold),"m")
