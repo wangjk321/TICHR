@@ -101,7 +101,7 @@ def getQprc(RgDF_Ctrl,RgDF_Treat,RgxDF_Ctrl,RgxDF_Treat,selecttype="rg",thresh=0
         return(geneSelectFinal,RgDFchange,changeRgxDF)
     
 
-def randomGene(RgDF_Ctrl,RgDF_Treat,selectbool,n=100,seed=42,absfdr=1,padj=0.05):
+def randomGene_backup(RgDF_Ctrl,RgDF_Treat,selectbool,n=100,seed=42,absfdr=1,padj=0.05):
     np.random.seed(seed)
     prclist=[] #长度为100
     precisionlist=[]
@@ -146,11 +146,74 @@ def randomGene(RgDF_Ctrl,RgDF_Treat,selectbool,n=100,seed=42,absfdr=1,padj=0.05)
     precision_q5_interp = np.interp(recall_common, recall_q5_sorted, precision_q5_sorted)
     precision_q95_interp = np.interp(recall_common, recall_q95_sorted, precision_q95_sorted)
 
-    return(prclist,recall_median,precision_median,recall_common,precision_q5_interp,precision_q95_interp) 
+    return(prclist,recall_median,precision_median,recall_common,precision_q5_interp,precision_q95_interp)
+
+
+# 2026.04.23 modify
+def randomGene(RgDF_Ctrl,RgDF_Treat,selectbool,n=100,seed=42,absfdr=1,padj=0.05):
+    np.random.seed(seed)
+    prclist=[] #长度为100
+    precisionlist=[]
+    recalllist=[]
+
+    for i in range(n):
+        shuffledBool = np.random.permutation(selectbool.values)
+
+        abschange_random, degbool_random = benchmarkvalue(RgDF_Ctrl[shuffledBool],
+                                                          RgDF_Treat[shuffledBool],
+                                                          absfdr=absfdr,padj=padj)
+        prclist.append(average_precision_score(degbool_random, abschange_random))
+
+        precision, recall, _ = precision_recall_curve(
+            degbool_random,
+            abschange_random+np.random.normal(0, 1e-10, abschange_random.shape)
+        )
+
+        precisionlist.append(precision)
+        recalllist.append(recall)
+
+    recall_common = np.linspace(0, 1, len(selectbool))
+
+    precision_interp_list = []
+    for precision, recall in zip(precisionlist, recalllist):
+        sorted_indices = np.argsort(recall)
+        recall_sorted = np.array(recall)[sorted_indices]
+        precision_sorted = np.array(precision)[sorted_indices]
+
+        recall_sorted, unique_idx = np.unique(recall_sorted, return_index=True)
+        precision_sorted = precision_sorted[unique_idx]
+
+        precision_interp = np.interp(recall_common, recall_sorted, precision_sorted)
+        precision_interp_list.append(precision_interp)
+
+    precision_interp_list = np.array(precision_interp_list)
+
+    recall_median = recall_common
+    precision_median = np.median(precision_interp_list, axis=0)
+    precision_q5_interp = np.percentile(precision_interp_list, 5, axis=0)
+    precision_q95_interp = np.percentile(precision_interp_list, 95, axis=0)
+
+    return(prclist,recall_median,precision_median,recall_common,precision_q5_interp,precision_q95_interp)
+
+
+
+def cutMinRg(RgDF_Ctrl,RgDF_Treat,RgxDF_Ctrl,RgxDF_Treat, minRg=0):
+    migRgBool = (RgDF_Ctrl[9] > minRg) & (RgDF_Treat[9] > minRg)
+    RgDF_Ctrl=RgDF_Ctrl[migRgBool]
+    RgDF_Ctrl.reset_index(drop=True, inplace=True)
+    RgDF_Treat=RgDF_Treat[migRgBool]
+    RgDF_Treat.reset_index(drop=True, inplace=True)
+
+    minRg_RgxBool = RgxDF_Ctrl[4].isin(RgDF_Ctrl[3])
+    RgxDF_Ctrl = RgxDF_Ctrl[minRg_RgxBool]
+    RgxDF_Ctrl.reset_index(drop=True, inplace=True)
+    RgxDF_Treat = RgxDF_Treat[minRg_RgxBool]
+    RgxDF_Treat.reset_index(drop=True, inplace=True)
+    return RgDF_Ctrl,RgDF_Treat,RgxDF_Ctrl,RgxDF_Treat
 
 class DiffEvent:
     def __init__(self,RgDF_Ctrl_file,RgxDF_Ctrl_file,RgDF_Treat_file,RgxDF_Treat_file,maxdistance=500000,
-                 outdir=os.getcwd(),inputtype="file",seed=42, pdf=True,absfdr=1,padj=0.05):
+                 outdir=os.getcwd(),inputtype="file",seed=42, pdf=True,absfdr=1,padj=0.05,minRg=None):
         if not os.path.exists(outdir): os.makedirs(outdir)
         self.seed=seed
         print("The input type is file or pandas.DataFrame: "+inputtype)
@@ -165,6 +228,18 @@ class DiffEvent:
             RgDF_Treat_raw = RgDF_Treat_file
             RgxDF_Treat_raw = RgxDF_Treat_file
 
+        if minRg:
+            print("Before filter Rg: "+str(len(RgDF_Ctrl_raw))+" genes.")
+            print("Before filter RgX: "+str(len(RgxDF_Ctrl_raw))+" S2G.")
+            RgDF_Ctrl_raw,RgDF_Treat_raw,RgxDF_Ctrl_raw,RgxDF_Treat_raw = cutMinRg(RgDF_Ctrl_raw,
+                                                                               RgDF_Treat_raw,
+                                                                               RgxDF_Ctrl_raw,
+                                                                               RgxDF_Treat_raw,
+                                                                               minRg=minRg)
+            
+            print("After filter Rg: "+str(len(RgDF_Ctrl_raw))+" genes.")
+            print("After filter RgX: "+str(len(RgxDF_Ctrl_raw))+" S2G.")
+        
         self.absfdr=absfdr
         self.padj=padj
         self.maxdistance = maxdistance
@@ -213,7 +288,7 @@ class DiffEvent:
         plt.title(label+"_max"+str(self.maxdistance)+"bp")
         plt.tight_layout()
         if self.outdir:
-            plt.savefig(self.outdir+"/"+label+"_select"+selectGeneType+"_multi_prcSelect.pdf")
+            plt.savefig(self.outdir+"/max"+str(self.maxdistance)+"_select"+selectGeneType+"_multi_prcSelect.pdf")
         
         print("Finish...")
 
@@ -228,7 +303,8 @@ class DiffEvent:
             for threshhold in thlist:
                 print("Computing background at quantile "+ str(threshhold))
                 prclist,recall_median,precision_median,recall_common,precision_q5_interp,precision_q95_interp = \
-                randomGene(self.RgDF_Ctrl,self.RgDF_Treat,geneSelectFinalList[j],seed=self.seed)
+                randomGene(self.RgDF_Ctrl,self.RgDF_Treat,geneSelectFinalList[j],seed=self.seed,
+                           absfdr=self.absfdr,padj=self.padj)
                 prc_random_lower.append(np.percentile(prclist, 5))
                 prc_random_upper.append(np.percentile(prclist, 95))
                 #plt.step(recall_median,precision_median,where='post',color=collist[j],label=label)
@@ -253,7 +329,7 @@ class DiffEvent:
         plt.title(label+"_max"+str(self.maxdistance)+"bp")
         plt.tight_layout()
         if self.outdir:
-            plt.savefig(self.outdir+"/"+label+"_select"+selectGeneType+"_multi_prcBg.pdf")
+            plt.savefig(self.outdir+"/max"+str(self.maxdistance)+"_select"+selectGeneType+"_multi_prcBg.pdf")
             # plt.savefig(self.outdir+"/"+label+"_select"+selectGeneType+"_multi_prcBg.png",dpi=300)
 
         print("Finish...")
@@ -301,9 +377,14 @@ class DiffEvent:
         if plotylim: plt.ylim(plotylim)
         plt.tight_layout()
         if self.outdir:
-            plt.savefig(self.outdir+"/"+label+"_select"+selectGeneType+"_multi_auprcSelectVSbg.pdf")
+            plt.savefig(self.outdir+"/max"+str(self.maxdistance)+"_select"+selectGeneType+"_multi_auprcSelectVSbg.pdf")
 
         print("Finish...")
+
+        auprcDF = pd.DataFrame()
+        auprcDF["threshold"]=thlist
+        auprcDF["auprc"]=auprclist
+        auprcDF.to_csv(self.outdir+"/max"+str(self.maxdistance)+"_select"+selectGeneType+"_multi_auprclist.tsv",sep="\t",index=None)
     
     def selectgene(self,selectGeneType="rg",label="label",threshhold=0.9,plot=True,plotbg=True):      
         plt.figure(figsize=(3.2,3.5))
@@ -321,7 +402,7 @@ class DiffEvent:
         #return(geneSelectFinal)
         if plotbg:
             prclist,recall_median,precision_median,recall_common,precision_q5_interp,precision_q95_interp = \
-            randomGene(self.RgDF_Ctrl,self.RgDF_Treat,geneSelectFinal,seed=self.seed)
+            randomGene(self.RgDF_Ctrl,self.RgDF_Treat,geneSelectFinal,seed=self.seed,absfdr=self.absfdr,padj=self.padj)
             prclist_q5 = np.percentile(prclist, 5)
             prclist_q95 = np.percentile(prclist, 95)
             plt.step(recall_median,precision_median,where='post',color="grey",label="background median")
@@ -334,9 +415,9 @@ class DiffEvent:
         plt.tight_layout()
         if self.outdir:
             if self.pdf:
-                plt.savefig(self.outdir+"/"+label+"_select"+selectGeneType+"_q"+str(threshhold)+"_prcSelectVSbg.pdf")
+                plt.savefig(self.outdir+"/max"+str(self.maxdistance)+"_select"+selectGeneType+"_q"+str(threshhold)+"_prcSelectVSbg.pdf")
             else:
-                plt.savefig(self.outdir+"/"+label+"_select"+selectGeneType+"_q"+str(threshhold)+"_prcSelectVSbg.png",dpi=300)
+                plt.savefig(self.outdir+"/max"+str(self.maxdistance)+"_select"+selectGeneType+"_q"+str(threshhold)+"_prcSelectVSbg.png",dpi=300)
         
 
         _,wilcoxp = wilcoxon([x - selectprc for x in prclist],alternative='less')
@@ -354,7 +435,7 @@ class DiffEvent:
         plt.title(label+"\n(select vs. background)") 
         plt.xlabel('AUPRC')
         if self.outdir:
-            plt.savefig(self.outdir+"/"+label+"_select"+selectGeneType+"_q"+str(threshhold)+"_auprcSelectVSbg.pdf")
+            plt.savefig(self.outdir+"/max"+str(self.maxdistance)+"_select"+selectGeneType+"_q"+str(threshhold)+"_auprcSelectVSbg.pdf")
         
     
     def diffgene(self,selectGeneType="rg",quantiTh=0.9,selectQuantile=True,

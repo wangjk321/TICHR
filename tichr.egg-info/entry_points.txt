@@ -1,0 +1,2 @@
+[console_scripts]
+tichr = tichr.__main__:main

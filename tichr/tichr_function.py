@@ -14,7 +14,7 @@ from .preprocess_hic import *
 def makeSiteBedFunction(candidatesite,candidateGeneFile,readFileList,gtfile,
                         species='hs',binResolution=100,peakToGeneMaxDistance=100000,
                         blackregion=None, refgene_file=None,tmpdir='tmp_makeSiteBdg',
-                        fixPeakWidth=False, only_promoter_area=100):
+                        fixPeakWidth=False, only_promoter_area=100,includePromoter=True):
     
     codepath = os.path.dirname(os.path.realpath(__file__))
 
@@ -25,7 +25,7 @@ def makeSiteBedFunction(candidatesite,candidateGeneFile,readFileList,gtfile,
         with open(tmpdir+"/blackregion.blank.tmp", 'w') as file: pass  # 不写入任何内容
         blackregion=tmpdir+"/blackregion.blank.tmp"
 
-    if not refgene_file:
+    if not refgene_file or not includePromoter:
         with open(tmpdir+"/refgene_file.blank.tmp", 'w') as file: pass  # 不写入任何内容
         refgene_file=tmpdir+"/refgene_file.blank.tmp"
     

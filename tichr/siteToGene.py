@@ -481,13 +481,13 @@ def adjS2G(rgxfile_raw,rgfile_raw,tpmfile,
 
     print("***Saving adjusted output")
     # Save final adjusted signals
-    rg_adjall.to_csv(outdir + "adjAll.rg.tsv", sep="\t", header=None, index=False)
-    rgx_adjall.to_csv(outdir + "adjAll.rgx.tsv", sep="\t", header=None, index=False)
+    rg_adjall.to_csv(outdir + "/adjAll.rg.tsv", sep="\t", header=None, index=False)
+    rgx_adjall.to_csv(outdir + "/adjAll.rgx.tsv", sep="\t", header=None, index=False)
     
     # Clean up intermediate files
     try:
-        os.remove(outdir + "adjrawstruc.rg.tsv")
-        os.remove(outdir + "adjrawstruc.rgx.tsv")
+        os.remove(outdir + "/adjrawstruc.rg.tsv")
+        os.remove(outdir + "/adjrawstruc.rgx.tsv")
     except FileNotFoundError:
         print("Some intermediate files were not found for deletion.")
 
@@ -549,14 +549,15 @@ class postTichr:
         self.df = cutdf
         self.rgdf = cutrgdf
 
-    def norm(self, new_colname="normRgX", outname="test"):
+    def norm(self, new_colname="normRgX", outname=None):
         df = self.df.copy()
         df[new_colname] = np.log2(df.iloc[:, 11] / df.iloc[:, 11].mean() + 1)
         self.normdf = df
         print(f"***{new_colname} generated.")
         print(df.head())
-        df.to_csv(outname + "_normRgX.tsv.gz", sep="\t", index=False, header=False, compression="gzip")
-        print(f"***Saved to {outname}_normRgX.tsv.gz")
+        if outname:
+            df.to_csv(outname + "_normRgX.tsv.gz", sep="\t", index=False, header=False, compression="gzip")
+            print(f"***Saved to {outname}_normRgX.tsv.gz")
 
     def save(self, outname="output", header=None):
         if header is None:

@@ -68,7 +68,7 @@ class Tichr:
         self.structureWeight = None
     
     def makeSiteBed(self,macs2species='hs',binResolution=100,
-                    blackregion=None,tmpdir=None,fixPeakWidth=True, only_promoter_area=100):
+                    blackregion=None,tmpdir=None,fixPeakWidth=True, only_promoter_area=100,includePromoter=True):
         self.macs2species = macs2species
         self.binResolution = binResolution
         if not tmpdir:
@@ -79,7 +79,8 @@ class Tichr:
                                                       species=macs2species,binResolution=binResolution,
                                                       peakToGeneMaxDistance=self.peakToGeneMaxDistance,
                                                       blackregion=blackregion, refgene_file=self.refgene_file,tmpdir=self.tmpdir,
-                                                      fixPeakWidth=fixPeakWidth, only_promoter_area=only_promoter_area)
+                                                      fixPeakWidth=fixPeakWidth, only_promoter_area=only_promoter_area,
+                                                      includePromoter=includePromoter)
 
 
     def makeSiteBdg(self, coverageMethod="coverageBed",spmr = False,multiBAMmerge='mean',file_type="bam",
@@ -307,7 +308,8 @@ class Tichr:
         # RgDF -> RgDf
         RgDf = self.candidateGeneDF.copy()
         # 加了header，和RgxDf保持一致
-        RgDf.columns = Rghead #["geneChr",'geneStart','geneEnd','geneSymbol','geneID','geneStrand']
+        if Rghead:
+            RgDf.columns = Rghead #["geneChr",'geneStart','geneEnd','geneSymbol','geneID','geneStrand']
         RgDf["Rg"] = RgList
 
         self.RgxDf = RgxDf
@@ -331,10 +333,15 @@ class Tichr:
 
         
         
-    def save(self,outname="output",header=False):
+    def save(self,outname="output",header=False,ifzip=True):
         print("***Save RgX and Rg to tsv tables.")
-        self.RgxDf.to_csv(outname+"_RgxDf.tsv.gz",header=header,sep="\t",index=None,compression="gzip")
-        self.RgDf.to_csv(outname+"_RgDf.tsv.gz",header=header,sep="\t",index=None,compression="gzip")
+        
+        if ifzip:
+            self.RgxDf.to_csv(outname+"_RgxDf.tsv.gz",header=header,sep="\t",index=None,compression="gzip")
+            self.RgDf.to_csv(outname+"_RgDf.tsv.gz",header=header,sep="\t",index=None,compression="gzip")
+        else:
+            self.RgxDf.to_csv(outname+"_RgxDf.tsv",header=header,sep="\t",index=None)
+            self.RgDf.to_csv(outname+"_RgDf.tsv",header=header,sep="\t",index=None)
 
         print("......Saved to "+outname+"_RgxDf.tsv.gz"+" and "+outname+"_RgDf.tsv.gz")
 
