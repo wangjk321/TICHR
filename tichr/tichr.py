@@ -24,7 +24,7 @@ def is_file_path_list(readFileList):
     for item in readFileList:
         if not isinstance(item, str):
             return False
-        if not os.path.isfile(item):   # 必须是实际存在的文件
+        if not os.path.isfile(item):   # Must exist
             return False
     
     return True
@@ -52,7 +52,10 @@ class Tichr:
         self.gtfile = gtfile
         self.refgene_file = refGeneFile
         self.ifTSSrange = ifTSSrange
-        self.candidateGeneDF = pd.read_csv(candidateGeneFile,sep='\t',header=None) #chr,start,end,symbol,geneid,strands 第五列实在不行换其他的也行
+        # Required columns:
+        # chr, start, end, gene_symbol, gene_id, strand
+        # The fifth column can be any unique gene identifier.
+        self.candidateGeneDF = pd.read_csv(candidateGeneFile,sep='\t',header=None) 
         self.candidateGeneFile = candidateGeneFile
         self.candidateGeneChrList = self.candidateGeneDF[0].unique()
         self.hicfilepath = hicfilepath
@@ -106,10 +109,10 @@ class Tichr:
             
             self.candidatesite_coverage[3] = (self.candidatesite_coverage[3] * candidatesite_coverage2[3]) ** 0.5
     
-# hic 的标准化分为三个部分
-# 1. hicNormType: Juicer本身的KR、VC_SQRT等标准化方法
-# 2. contactNorm：标准化矩阵，如使用abc，还是oe方法，还是不进一步标准化
-# 3. ifUseHiCRef：是否处以以reference hic
+# Hi-C normalization consists of three components:
+# 1. hicNormType: normalization methods provided by Juicer (e.g., KR, VC_SQRT)
+# 2. contactNorm: additional contact matrix normalization (e.g., ABC, OE, or none)
+# 3. ifUseHiCRef: whether to normalize against a reference Hi-C dataset
 
     def proceessHiC(self,hicRes,hicDataType,hicNormType,juicertool=None,
                     threads=8,contactNorm='default',
@@ -171,7 +174,7 @@ class Tichr:
         geneipeakcenterlist = (geneipeaklist[1]+geneipeaklist[2])/2
         ifpromoter = (geneipeaklist[2]> geneitss-self.ifTSSrange) & (geneipeaklist[1]< geneitss+self.ifTSSrange)
 
-        # avoiding using hicdata wrongly
+        # Avoiding using hicdata wrongly
         if weightType == "hic": 
             hicProcessedData = self.nomhicdf
         else:
@@ -196,7 +199,7 @@ class Tichr:
 
         if weightType=="hic" and self.contactNorm=='abc':
             #qc gene
-            badgene_threshold = 0.01 #排除没有链接的基因
+            badgene_threshold = 0.01 # exclude genes with little or no valid contact signal
             if np.nansum(geneiPeakxWeightList) < badgene_threshold:
                 geneiPeakxWeightList = [getpowerlaw(abs(x-geneitss),given_gamma,given_scale,hicmindistance) for x in geneipeakcenterlist]
         
@@ -219,23 +222,22 @@ class Tichr:
             if total_sum > 0:  
                 ratio_threshold = noise_ratio * total_sum
                 cumulative_sum = np.cumsum(np.sort(geneiWEscore))
-                # 找到比例对应的阈值位置
+                # Find the score corresponding to the specified noise threshold
                 geneiWEscore[np.searchsorted(cumulative_sum, ratio_threshold)] = 0
 
-        
-        #这个是Rg的值
-        #geneiWEscoreSum = np.array(geneiPeakxEpigenome).sum()
+        # Gene-level regulatory score (Rg)
+        # geneiWEscoreSum = np.array(geneiPeakxEpigenome).sum()
         geneiWEscoreSum = geneiWEscore.sum()
 
         
         #Rgx
-        if geneiWEscoreSum > 0: #判断是否全为0
+        if geneiWEscoreSum > 0: #  Avoid division by zero when all scores are zero
             geneiWEscore_percent = geneiWEscore / geneiWEscoreSum
         else:
             geneiWEscore_percent = geneiWEscore * 0
 
         if setpromoter1:
-            geneiWEscore_percent[ifpromoter] = 1 #启动子设置为1
+            geneiWEscore_percent[ifpromoter] = 1 #  Assign a weight of 1 to promoter regions
 
         genei_Rgx_df = geneipeaklist.iloc[:,0:4].copy()
         genei_Rgx_df.columns = ["peakChr",'peakStart','peakEnd','epigenomeActivity']
@@ -296,7 +298,7 @@ class Tichr:
                                             ifUseHiCRef=ifUseHiCRef, goldWeightDf=userWeightFile) 
                         for i in range(numOfGene)]
                 
-                # 收集结果
+                # Collect results
                 for future in futures:
                     geneiWEscoreSum, genei_Rgx_df = future.result()
                     RgxDfList.append(genei_Rgx_df)
@@ -307,7 +309,7 @@ class Tichr:
         RgxDf = pd.concat(RgxDfList, ignore_index=True)
         # RgDF -> RgDf
         RgDf = self.candidateGeneDF.copy()
-        # 加了header，和RgxDf保持一致
+        # Add column headers to match RgxDf
         if Rghead:
             RgDf.columns = Rghead #["geneChr",'geneStart','geneEnd','geneSymbol','geneID','geneStrand']
         RgDf["Rg"] = RgList

@@ -8,7 +8,6 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 
-#def 
 def makediffrank(list1,list2):
     rank1 = list1.rank()
     rank2 = list2.rank()
@@ -24,10 +23,10 @@ def plot_scatter_with_fit(x_data, y_data, x_label='X', y_label='Y',height=4, asp
                           insideplot=False,title='Scatter Plot with Linear Fit',**kwargs,):
     import warnings
     warnings.filterwarnings('ignore')
-    # 创建数据框
+    # Create a DataFrame
     data = pd.DataFrame({x_label: x_data, y_label: y_data})
     
-    # 使用 seaborn 绘制带有拟合直线的散点图
+    # Draw a scatter plot with a fitted regression line using seaborn
     if not insideplot:
         sns.lmplot(x=x_label, y=y_label, data=data, line_kws={'color': 'grey'},
                 height=height, aspect=aspect,scatter_kws={**kwargs})
@@ -37,7 +36,7 @@ def plot_scatter_with_fit(x_data, y_data, x_label='X', y_label='Y',height=4, asp
     plt.xlabel(x_label)
     plt.ylabel(y_label)
     plt.title(title,fontsize=14)
-    # 计算并显示相关性系数
+    # Calculate and display the correlation coefficient
     corr = np.corrcoef(x_data, y_data)[0, 1]
     plt.text(0.05, 0.95, f'Correlation: {corr:.3f}', transform=plt.gca().transAxes, 
              fontsize=14, verticalalignment='top')
@@ -117,10 +116,10 @@ def predictDEG(ctrlcsv,treatcsv,logRg=True,fdrcutoff=0.01,
     nondegbool = (pd.Series(fdrlist) >0.01) & (abs(pd.Series(logfclist)) <1)
     alldegbool = (pd.Series(fdrlist) < 0.01) & (abs(pd.Series(logfclist)) >1)
 
-    X1 = np.column_stack((rpctrllist, rptreatlist, rpdifflist))  # 合并特征为二维数组
-    X2 = np.column_stack((rpdifflist,))  # 合并特征为二维数组
-    X3 = np.column_stack((rpctrllist,))  # 合并特征为二维数组
-    X4 = np.column_stack((rptreatlist,))  # 合并特征为二维数组
+    X1 = np.column_stack((rpctrllist, rptreatlist, rpdifflist))  # Combine features into a 2D array
+    X2 = np.column_stack((rpdifflist,))  # Combine features into a 2D array
+    X3 = np.column_stack((rpctrllist,))  # Combine features into a 2D array
+    X4 = np.column_stack((rptreatlist,))  # Combine features into a 2D array
 
     if plotAllDeg:
         plotdeglist = [alldeglist,updeglist,downdeglist]

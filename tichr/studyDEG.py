@@ -27,7 +27,7 @@ def benchmarkvalue(RgDF_Ctrl,RgDF_Treat,degtype="all",absfdr=1,padj=0.05):
     
     return(abs(deltaRg),degbool)
 
-def cut_distance(df,rgdf,maxdis=100000): #df是RgxDf
+def cut_distance(df,rgdf,maxdis=100000): #df is RgxDf
     peakpos = (df[1] + df[2]) / 2
     tsspos = np.where(df.iloc[:, 8] == "+", df.iloc[:, 6], df.iloc[:, 7])
     peak2tss = abs(peakpos-tsspos)
@@ -42,7 +42,7 @@ def cut_distance(df,rgdf,maxdis=100000): #df是RgxDf
     return(cutdf,cutrgdf)
 
 
-#选取变化最大的基因
+#Select the most strongly changed genes
 def getQprc(RgDF_Ctrl,RgDF_Treat,RgxDF_Ctrl,RgxDF_Treat,selecttype="rg",thresh=0.8,returnDF=False):
     print("Computing at quantile "+ str(thresh))
     changeRgxDF = pd.DataFrame()
@@ -103,7 +103,7 @@ def getQprc(RgDF_Ctrl,RgDF_Treat,RgxDF_Ctrl,RgxDF_Treat,selecttype="rg",thresh=0
 
 def randomGene_backup(RgDF_Ctrl,RgDF_Treat,selectbool,n=100,seed=42,absfdr=1,padj=0.05):
     np.random.seed(seed)
-    prclist=[] #长度为100
+    prclist=[] # Length = n
     precisionlist=[]
     recalllist=[]
 
@@ -116,14 +116,14 @@ def randomGene_backup(RgDF_Ctrl,RgDF_Treat,selectbool,n=100,seed=42,absfdr=1,pad
         prclist.append(average_precision_score(degbool_random, abschange_random))
 
         precision, recall, _ = precision_recall_curve(
-            degbool_random, #防止abschange有相同的值
+            degbool_random, # Add a small amount of noise to avoid tied scores
             abschange_random+np.random.normal(0, 1e-10, abschange_random.shape)
         )
 
         precisionlist.append(precision)
         recalllist.append(recall)
 
-    recall_median = np.median(recalllist,axis=0) #长度为1303
+    recall_median = np.median(recalllist,axis=0) #Length = number of genes
     precision_median = np.median(precisionlist,axis=0)
 
     recall_common = np.linspace(0, 1, len(selectbool))
@@ -133,12 +133,12 @@ def randomGene_backup(RgDF_Ctrl,RgDF_Treat,selectbool,n=100,seed=42,absfdr=1,pad
     precision_q5 = np.percentile(precisionlist, 5, axis=0)
     precision_q95 = np.percentile(precisionlist, 95, axis=0)
 
-    # 按 recall_q5 排序
+    # Sort by recall_q5
     sorted_indices_q5 = np.argsort(recall_q5)  # 获取 recall_q5 的排序索引
     recall_q5_sorted = recall_q5[sorted_indices_q5]  # 排序后的 recall_q5
     precision_q5_sorted = precision_q5[sorted_indices_q5]  # 对应的 precision_q5 排序
 
-    # 对 recall_q95 和 precision_q95 按 recall_q5 排序（如果需要）
+    # Sort recall_q95 and precision_q95 accordingly
     sorted_indices_q95 = np.argsort(recall_q95)
     recall_q95_sorted = recall_q95[sorted_indices_q95]
     precision_q95_sorted = precision_q95[sorted_indices_q95]
@@ -443,13 +443,13 @@ class DiffEvent:
                  selectRank="sumrank0",selectRankTh=0.9,plotxlim=None,plotxlabel=None,
                  title="title"):
         
-        # 选定特征的前百分之几
+        # Select the top percentile of the specified feature
         selectQuantiBool,RgDFchange,changeRgxDF=getQprc(self.RgDF_Ctrl,self.RgDF_Treat,
                                                         self.RgxDF_Ctrl,self.RgxDF_Treat,
                                 selecttype=selectGeneType,thresh=quantiTh,returnDF=True)
         selectQuantiBool.index = RgDFchange[3]
         
-        totalbool = RgDFchange[1] >= 0 #定义一个全部为True的pd.Series
+        totalbool = RgDFchange[1] >= 0 # Define a pd.Series with all values set to True
         if selectQuantile: totalbool = totalbool & selectQuantiBool
         
         self.RgDFchange = RgDFchange
@@ -468,23 +468,23 @@ class DiffEvent:
 
         plt.colorbar(shrink=0.2,aspect=10)
 
-        if selectDeg:   #差异表达基因
+        if selectDeg:  # Differentially expressed genes
             selectDegBool = (abs(RgDFchange[6])>1) & (RgDFchange[7]<0.05)
             totalbool = totalbool & selectDegBool
             
-        if selectFc:  #变化倍数
+        if selectFc:  #fold change
             selectFcBool = abs(RgDFchange["change_fc"+selectGeneType.removeprefix("fc")])>fcTh
             totalbool = totalbool & selectFcBool
             
         
         if selectRank == "diffrank":
             rankBool = abs(makediffrank(RgDFchange["change_"+selectGeneType], RgDFchange[6]))>selectRankTh
-        else: #变化趋势
+        else: # Directional consistency of changes
             rankBool = abs(makesumrank_center0(RgDFchange["change_"+selectGeneType], RgDFchange[6]))>selectRankTh
 
         totalbool = totalbool & rankBool
         
-        legend_sizes = [0.05,1e-5,1e-10]  # 代表性点大小
+        legend_sizes = [0.05,1e-5,1e-10]  # Representative FDR values
         legend_handles = [plt.scatter([], [], 
                                       s=np.interp(-np.log10(size), (geneFDR.min(), geneFDR.max()), (1, 20)), 
                                       facecolors='none', edgecolors='grey',alpha=0.5, label=f"geneFDR={size}") 
@@ -508,16 +508,18 @@ class DiffEvent:
 
         print(sum(totalbool)," genes selected")
 
-        ##################画选择图
+        ##################Plot gene selection criteria
         plt.figure(figsize=(5.5,3.8))
         
         if selectDeg:
             plt.axhline(-1, color='r', linestyle='--',alpha=0.5,)  
             plt.axhline(1, color='r', linestyle='--',label="|geneFC|>1",alpha=0.5,) 
         
-        plt.axvline(-abs(selectTypeChange).quantile(quantiTh), color='b', linestyle='--',alpha=0.5)  # 画一条 y=-1 的红色虚线
+        plt.axvline(-abs(selectTypeChange).quantile(quantiTh), color='b', linestyle='--',alpha=0.5)  # Lower quantile cutoff
+
         plt.axvline(abs(selectTypeChange).quantile(quantiTh),
-                    color='b', linestyle='--',label="|\u0394Rg|>quantile"+str(quantiTh),alpha=0.5) # 画一条 y=-1 的红色虚线
+                    color='b', linestyle='--',label="|\u0394Rg|>quantile"+str(quantiTh),alpha=0.5) # Upper quantile cutoff
+        
         if selectFc:
             plt.scatter(RgDFchange[selectFcBool]["change_"+selectGeneType],
                 RgDFchange[selectFcBool][6],s=pointsize[selectFcBool],
@@ -529,7 +531,7 @@ class DiffEvent:
             
         plt.scatter(selectTypeChange,geneFC,s=pointsize,
                     facecolors='none', edgecolors='grey',alpha=0.5)
-        legend_sizes = [0.05,1e-5,1e-10]  # 代表性点大小
+        legend_sizes = [0.05,1e-5,1e-10]  # dots size
         legend_handles = [plt.scatter([], [], 
                                       s=np.interp(-np.log10(size), (geneFDR.min(), geneFDR.max()), (1, 20)), 
                                       facecolors='none', edgecolors='grey',alpha=0.5, label=f"geneFDR={size}") 
@@ -573,7 +575,7 @@ class DiffEvent:
         
         if selectRgxType=="rgxpercent": selectRgxFold=False
         
-        #第一个根据基因选择
+        # First, select links based on selected genes
         if selectdiffgene:
             Rgx_selectgene_bool = RgxDFchange["geneID"].isin(self.totalbool[self.totalbool].index)
             print("Selected ",sum(Rgx_selectgene_bool)," site-to-gene links by selected genes")
@@ -585,20 +587,20 @@ class DiffEvent:
             rgxTotalBool = rgxTotalBool & majorRgxBool
 
         if selectRgxQuantile:
-            #第二个根据Quantile选择
+            # Second, select links based on the Rgx change quantile
             changeRgxBool = abs(selectRgxChange) >= abs(selectRgxChange).quantile(quantileRgxCut)
             print("Selected ",sum(changeRgxBool)," site-to-gene links by Rgx quantile")
             rgxTotalBool = rgxTotalBool & changeRgxBool
 
         if selectRgxFold:
-            #第三个根据变化倍数选择
+            # Third, select links based on fold change
             print("selectRgxFold")
             selectRgxFc = RgxDFchange["change_fc"+selectRgxType.removeprefix("fc")]
             selectRgxFcBool = abs(selectRgxFc)>= RgxFcCut
             print("Selected ",sum(selectRgxFcBool)," site-to-gene links by Rgx log fold change")
             rgxTotalBool = rgxTotalBool & selectRgxFcBool
         
-        if selectRgxRank == "same": #变化趋势
+        if selectRgxRank == "same": # Directional consistency of changes
             rankBool = abs(makesumrank_center0(selectRgxChange, RgxDFchange["geneFC"]))> rgxRankCut
             print("Selected ",sum(rankBool)," site-to-gene links by sumrank")
             rgxTotalBool = rgxTotalBool & rankBool
@@ -619,7 +621,7 @@ class DiffEvent:
 
         plt.colorbar(shrink=0.2,aspect=10)
         
-        legend_sizes = [0.05,1e-5,1e-10]  # 代表性点大小
+        legend_sizes = [0.05,1e-5,1e-10]  # dot size
         legend_handles = [plt.scatter([], [], 
                                       s=np.interp(-np.log10(size), (geneFDR.min(), geneFDR.max()), (1, 20)), 
                                       facecolors='none', edgecolors='grey',alpha=0.5, label=f"geneFDR={size}") 

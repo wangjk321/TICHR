@@ -47,7 +47,7 @@ do
        if [ $? -ne 0 ]; then
        #if ! test -s $tempfile; then
          echo try to use "chr1,chr2..." instead of "1,2..."
-         # 如果执行错误，则执行第二个命令
+         # If the command fails, retry using chromosome names with the "chr" prefix
          $juicertool dump $type $norm $hic chr$chr chr$chr BP $binsize $tempfile -d 
        fi
 

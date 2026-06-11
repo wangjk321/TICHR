@@ -6,9 +6,7 @@ from scipy.stats import spearmanr,pearsonr
 from rpy2.robjects import r
 from rpy2.robjects.packages import importr
 from scipy.stats import mannwhitneyu
-
 from .RPpredictDEG import *
-
 
 
 def logneg(values):
@@ -29,6 +27,11 @@ def makesumrank_center0(list1,list2):
     rank2 = list2.rank()
     return (rank1+rank2)/(len(list1)) -1
 
+# Merge control and treatment Rg/RgX results.
+# 1. Filters low-confidence site-to-gene links.
+# 2. Recalculates gene-level Rg values from filtered RgX.
+# 3. Combines control and treatment data into merged matrices
+
 def mergeDF(rgCtrl_path,rgTreat_path,rgxCtrl_path,rgxTreat_path,samehic=False, 
             minRgx=0,minRgxRatio=0,minRgxQuantile=0,filter=True):
     rgCtrl = pd.read_csv(rgCtrl_path, sep="\t",header=None)
@@ -42,7 +45,10 @@ def mergeDF(rgCtrl_path,rgTreat_path,rgxCtrl_path,rgxTreat_path,samehic=False,
         goodvalue = ((rgxCtrl[11]+rgxTreat[11])/2 > minRgx) & goodvalue
         goodvalue = ((rgxCtrl[12]+rgxTreat[12])/2 > minRgxRatio) & goodvalue
 
-        #把真正的ABC换成两个百分比的平均值
+        # # Replace the original condition-specific RgX ratios
+        # with the average ratio across conditions.
+        # This ensures that differences are driven by RgX changes
+        # rather than changes in the relative ratio itself.
         rgxCtrl[12] = (rgxCtrl[12]+rgxTreat[12])/2
         rgxTreat[12] = (rgxCtrl[12]+rgxTreat[12])/2
         
@@ -69,14 +75,14 @@ def mergeDF(rgCtrl_path,rgTreat_path,rgxCtrl_path,rgxTreat_path,samehic=False,
         rgTreat.reset_index(drop=True, inplace=True)
 
 
-    # 拼接最后一列（rgTreat）到 rgCtrl
+    # Append the last column from rgTreat to rgCtrl
     rg_merged = pd.concat([rgCtrl, rgTreat.iloc[:, -1]], axis=1, ignore_index=True)
-    # 拼接第12列（rgxTreat，第11号索引）到 rgxCtrl
+    # Append the treatment RgX column to the control RgX dataframe
     rgx_merged = pd.concat([rgxCtrl, rgxTreat.iloc[:, 11]], axis=1, ignore_index=True)
     
     return(rg_merged,rgx_merged)
 
-
+# Evaluate regulation-transcription concordance.
 def prepare_select_by_rank(mergedfile, basedon = "rg",title="title",
                            label="TF",genelabel="(all genes)",filetype="file",
                            negative_cutoff=0.8,positive_cutoff=0.8,
@@ -94,16 +100,17 @@ def prepare_select_by_rank(mergedfile, basedon = "rg",title="title",
     mergedDF.reset_index(drop=True, inplace=True)
 
     meanRg = (np.log1p(mergedDF[rgtreat_col_num]) + np.log1p(mergedDF[rgctrl_col_num])) / 2
-    meanTPM = mergedDF[tpm_col_num] #已经log后了
+    meanTPM = mergedDF[tpm_col_num] # Already log-transformed
     changeRg = np.log1p(mergedDF[rgtreat_col_num]) - np.log1p(mergedDF[rgctrl_col_num])
-    changeTPM = mergedDF[logfc_col_num] #已经处理好了
+    changeTPM = mergedDF[logfc_col_num]
 
     if plotscatter:
-                # 创建子图
-        fig, axes = plt.subplots(2, 1, figsize=(3, 6))  # 上下两图
+        # Create two vertically stacked subplots
+        fig, axes = plt.subplots(2, 1, figsize=(3, 6))
+        # Adjust vertical spacing between subplots
         plt.subplots_adjust(hspace=0.4)
 
-        # -------- 图1：meanRg vs meanTPM --------
+        # -------- plot1：meanRg vs meanTPM --------
         sns.regplot(
             x=meanRg,
             y=meanTPM,
@@ -118,7 +125,7 @@ def prepare_select_by_rank(mergedfile, basedon = "rg",title="title",
         axes[0].text(0.05, 0.95, f'Corr(Rg vs TPM): {corr1:.3f}',
                     transform=axes[0].transAxes, fontsize=10, va='top')
 
-        # -------- 图2：deltaRg vs deltaTPM --------
+        # -------- plot2：deltaRg vs deltaTPM --------
         sns.regplot(
             x=changeRg,
             y=changeTPM,
@@ -133,7 +140,7 @@ def prepare_select_by_rank(mergedfile, basedon = "rg",title="title",
         axes[1].text(0.05, 0.95, f'Corr(\u0394Rg vs logFC): {corr2:.3f}',
                     transform=axes[1].transAxes, fontsize=10, va='top')
 
-        # 保存
+        # save plot
         plt.tight_layout()
         plt.savefig(f"{outname}_scatter.pdf")
 
@@ -161,11 +168,12 @@ def prepare_select_by_rank(mergedfile, basedon = "rg",title="title",
                        negshow=negshow,negshowabs=negshowabs,posshow=posshow,posshowabs=posshowabs,
                         outname=outname,plotSelect=plotSelect,
                        negselect=negselect,negselectabs=negselectabs,posselect=posselect,posselectabs=posselectabs)
-        
-# select_rg, 所选的Rg值，比如ctrl和treat平均的Rg值
-# select_tpm, 所选的基因表达值，比如ctrl和treat平均的TPM值
-# predict_rg, Rg的变化值，比如ctrl和treat的Rg的logFC
-# predict_tpm, tpm的变化值,比如ctrl和treat的tpm的logFC
+
+# select_rg: Regulatory strength used for ranking, e.g. average Rg between control and treatment
+# select_tpm: Gene expression value used for ranking, e.g. average TPM between control and treatment
+# predict_rg: Regulatory changes, e.g. logFC of Rg
+# predict_tpm: Expression changes, e.g. logFC of TPM
+
 def select_by_rank(select_rg,select_tpm,predict_rg,predict_tpm,
                    negative_cutoff=0.8,positive_cutoff=0.8,
                    labellist=["Rg","Gene TPM"],
@@ -188,7 +196,7 @@ def select_by_rank(select_rg,select_tpm,predict_rg,predict_tpm,
     sumrank_predict = 1 - (rank_predict_tpm+rank_predict_rg)/(len(rank_predict_tpm)*2)
     sumrank0_predict = -makesumrank_center0(rank_predict_tpm,rank_predict_rg)
     
-    #1. 根据diffrank选负调控
+    # Identify candidate negatively regulated genes using diffrank-based discordance.
     if negselect=="diffrank":
         negselect_score = diffrank_select
     elif negselect=="sumrank":
@@ -202,7 +210,7 @@ def select_by_rank(select_rg,select_tpm,predict_rg,predict_tpm,
     value_bool = negselect_score > negative_cutoff
     
     
-    #fig, axes = plt.subplots(1, 3, figsize=(9, 4))  # 1 行 2 列的子图布局
+    #fig, axes = plt.subplots(1, 3, figsize=(9, 4))  
     fig = plt.figure(figsize=(8, 3.8))
     gs = GridSpec(1, 3, width_ratios=[1.5, 1, 1])
 
@@ -220,17 +228,17 @@ def select_by_rank(select_rg,select_tpm,predict_rg,predict_tpm,
     cbar1.ax.xaxis.set_label_position('bottom')
     cbar1.ax.xaxis.label.set_rotation(90)
     
-    # 在第一个子图上画第一个箱线图
+    # Draw the first boxplot in the first subplot
     colors = ['snow', 'rosybrown']
     axes1 = fig.add_subplot(gs[1])
     bp=axes1.boxplot([negselect_score, negselect_score[value_bool]],widths=0.8,notch=True,patch_artist=True)
     for box, color in zip(bp['boxes'], colors):
         box.set_facecolor(color)
-    axes1.set_title('diffrank\n('+select_label+')')  # 设置标题
+    axes1.set_title('diffrank\n('+select_label+')')  # set title
     axes1.set_xticklabels(["All genes", "'Negatively'\nregulated\ngenes"])
     plt.setp(axes1.get_xticklabels(), rotation=45, ha="right")
     
-    # 在第二个子图上画第二个箱线图
+    # Draw the second boxplot in the second subplot
     axes2 = fig.add_subplot(gs[2])
     if negshow == "diffrank":
         plot_predict = diffrank_predict
@@ -249,13 +257,13 @@ def select_by_rank(select_rg,select_tpm,predict_rg,predict_tpm,
     colors = ['snow', 'darkviolet']
     for box, color in zip(bp['boxes'], colors):
         box.set_facecolor(color)
-    axes2.set_title('diffrank\n('+predict_label+')')  # 设置标题
+    axes2.set_title('diffrank\n('+predict_label+')')  # set title
     axes2.set_xticklabels(["All genes", "'Negatively'\nregulated\ngenes"])
     plt.setp(axes2.get_xticklabels(), rotation=45, ha="right")
 
-    # 调整布局，防止子图重叠
+    # Adjust the layout to avoid overlapping subplots
     plt.tight_layout()
-    # 显示子图
+    # Save and display the negative-regulation plots
     if outname:
         plt.savefig(outname+"_negative.pdf")
         plt.savefig(outname+"_negative.png",dpi=300)
@@ -263,7 +271,7 @@ def select_by_rank(select_rg,select_tpm,predict_rg,predict_tpm,
     plt.savefig(f"{outname}_diffrank_top_correlated.pdf")
     #plt.savefig(outname+"_diffrank.pdf")
     
-    ##############2.根据sumrank选择positive regulation##########
+    ##############2.Select positive regulation based on sumrank##########
 
     if posselect=="diffrank":
         posselect_score = diffrank_select
@@ -298,13 +306,15 @@ def select_by_rank(select_rg,select_tpm,predict_rg,predict_tpm,
     cbar2.ax.xaxis.set_label_position('bottom')
     cbar2.ax.xaxis.label.set_rotation(90)
     
-    colors = ['snow', 'rosybrown']  # 定义填充颜色 
+    colors = ['snow', 'rosybrown']  # Box fill colors 
     ax1 = fig.add_subplot(gs[1])
+    # Compare sumrank distributions between
+    # all genes and positively regulated genes
     bp1 = ax1.boxplot([posselect_score, posselect_score[value_bool2]],widths=0.8,notch=True,patch_artist=True)
     for box, color in zip(bp1['boxes'], colors):
-        box.set_facecolor(color)  # 设置填充颜色
+        box.set_facecolor(color)  # Set box fill color
         
-    ax1.set_title('sumrank\n('+select_label+')')  # 设置标题
+    ax1.set_title('sumrank\n('+select_label+')')  # set title
     ax1.set_xticklabels(["All genes", "'Positively'\nregulated\ngenes"])
     plt.setp(ax1.get_xticklabels(), rotation=45, ha="right")
 
@@ -324,12 +334,12 @@ def select_by_rank(select_rg,select_tpm,predict_rg,predict_tpm,
 
     colors = ['snow', 'darkviolet']
     for box, color in zip(bp2['boxes'], colors):
-        box.set_facecolor(color)  # 设置填充颜色
-    ax2.set_title('sumrank\n('+predict_label+')')  # 设置标题
+        box.set_facecolor(color)  # Set box fill color
+    ax2.set_title('sumrank\n('+predict_label+')')  # Set box fill color
     ax2.set_xticklabels(["All genes", "'Positively'\nregulated\ngenes"])
     plt.setp(ax2.get_xticklabels(), rotation=45, ha="right")
     
-    # 调整布局，防止子图重叠
+    # Adjust the layout to avoid overlapping subplots
     plt.tight_layout()
     if outname:
         plt.savefig(outname+"_positive.pdf")
@@ -370,13 +380,13 @@ def extractNeg(mergedRgFile, mergedRgxFile, rgctrl_col_num=9, rgtreat_col_num=10
         mergedRg = mergedRgFile.copy()
         mergedRgx = mergedRgxFile.copy()
 
-    # Rg 文件：一基因一行（已经是 gene-level）
+    # Gene-level Rg table: one row per gene
     rg_genes = mergedRg[3].values
 
-    # RgX 文件：去重成 gene-level
+    # Extract unique genes represented in the site-to-gene interaction table
     rgx_genes = mergedRgx[4].drop_duplicates().values
 
-    # 检查长度是否一致
+    # Ensure consistency between gene-level and site-to-gene datasets
     if len(rg_genes) != len(rgx_genes):
         raise ValueError(f"Gene count mismatch: Rg={len(rg_genes)}, RgX={len(rgx_genes)}.")
     
@@ -576,7 +586,7 @@ def extractNeg(mergedRgFile, mergedRgxFile, rgctrl_col_num=9, rgtreat_col_num=10
             plt.savefig(outdir+"/Iteration"+str(iteration_count)+"-deltaRg-geneFC.pdf")
             plt.savefig(outdir+"/Iteration"+str(iteration_count)+"-deltaRg-geneFC.png",dpi=300)
 
-        # 创建主图
+        # Create the main figure
         fig, axs = plt.subplots(1, 3, figsize=(6, 3), gridspec_kw={'width_ratios': [1, 1, 1]})
 
         # Boxplot 1: Gene TPM
@@ -734,14 +744,14 @@ def mergeDFmany(rgCtrl_file,rgTreat_file,rgxCtrl_file,rgxTreat_file,
         "sample": sample_names,
         "condition": conditions
     })
-    # 导出 counts 表（第一列是 peak ID）
+    # Export count matrix for DESeq2 analysis (the first column contains peak IDs)
     counts_df.insert(0, "peak", counts_df.index)
     counts_df.to_csv("counts.tsv", sep="\t", index=False)
-    # 导出 metadata 表
+    # Export sample metadata
     meta_df.to_csv("metadata.tsv", sep="\t", index=False)
     run_deseq2()
 
-    #把真正的ABC换成两个百分比的平均值
+    # Replace condition-specific RgX ratios with the average ratio across conditions
     rgxCtrl[12] = (rgxCtrl[12]+rgxTreat[12])/2
     rgxTreat[12] = (rgxCtrl[12]+rgxTreat[12])/2
     
@@ -767,9 +777,9 @@ def mergeDFmany(rgCtrl_file,rgTreat_file,rgxCtrl_file,rgxTreat_file,
     rgTreat = rgTreat.dropna(subset=[rgTreat.columns[9]])
     rgTreat.reset_index(drop=True, inplace=True)
 
-    # 拼接最后一列（rgTreat）到 rgCtrl
+    # Append treatment-group Rg values to the merged gene-level dataframe
     rg_merged = pd.concat([rgCtrl, rgTreat.iloc[:, -1]], axis=1, ignore_index=True)
-    # 拼接第12列（rgxTreat，第11号索引）到 rgxCtrl
+    # Add DESeq2-adjusted p-values for each site-to-gene link
     rgx_merged = pd.concat([rgxCtrl, rgxTreat.iloc[:, 11]], axis=1, ignore_index=True)
     
     padj_df = pd.read_csv("deseq2_padj.tsv",sep="\t")
@@ -785,34 +795,34 @@ def run_deseq2(counts_file="counts.tsv", metadata_file="metadata.tsv", output_pr
     library(readr)
     library(BiocParallel)
 
-    # 读取 counts 表
+    # Read the count matrix
     counts <- read_tsv("{counts_file}")
     counts_mat <- as.matrix(counts[,-1])
     rownames(counts_mat) <- counts[[1]]
     counts_mat <- round(counts_mat)
     storage.mode(counts_mat) <- "integer"
 
-    # 读取 metadata
+    # Read sample metadata
     meta <- read_tsv("{metadata_file}")
     meta$condition <- factor(meta$condition, levels = c("ctrl", "treat"))
 
-    # 创建 DESeq2 数据集
+    # Create the DESeq2 dataset
     dds <- DESeqDataSetFromMatrix(countData = counts_mat,
                                   colData = meta,
                                   design = ~ condition)
 
-    # 差异分析
+    # Perform differential analysis
     dds <- DESeq(dds)
 
     register(MulticoreParam(32)) 
 
-    # shrink log2 fold changes
+    # Shrink log2 fold changes
     resLFC <- lfcShrink(dds, coef="condition_treat_vs_ctrl", type="apeglm", parallel=TRUE)
 
     padj_df <- data.frame(peak = rownames(resLFC), padj = resLFC$padj)
     padj_df$padj[is.na(padj_df$padj)] <- 1
 
-    # 保存为 tsv 文件
+    # Save results as TSV files
     write.table(padj_df, file = "{output_prefix}_padj.tsv", row.names = FALSE, quote = FALSE, sep="\\t")
     write.table(resLFC, file = "{output_prefix}_resLFC.tsv", row.names = FALSE, quote = FALSE, sep="\\t")
     """)

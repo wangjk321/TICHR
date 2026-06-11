@@ -61,7 +61,7 @@ def findStrucWeight(rgxfile_raw,rgfile_raw,golddf,goldcol,outdir,
                     structureTypeList,structureFileList,structureWeightList,
                     matchcol=12+1,truecol=11+1,onlyPlot=False,goldwithhead=False,
                     typelist=["noadj","adjRaw","adjStruc","adjRawStruc",]):
-    # 所有列数为真实列数，不是python里面的0-based
+    # All column indices are 1-based (actual column numbers), not Python's 0-based indices
     if not os.path.exists(outdir): os.makedirs(outdir)
     print("Try raw adjustment")
     matchgold(rgxfile_raw,golddf,outdir+"noadj.tsv",goldcol,percent=True,withhead=goldwithhead)
@@ -92,7 +92,7 @@ def allcombination(rgxfile_raw,rgfile_raw,outdir,golddf,goldcol,tpmfile,
                           "adjRawStruc","adjStrucRank","adjStrucRankRaw"], RgXhead=False):
     
     outdir=os.path.join(outdir, "")
-    # 所有列数为真实列数，不是python里面的0-based
+    # All column indices are 1-based (actual column numbers), not Python's 0-based indices
     if not os.path.exists(outdir): os.makedirs(outdir)
 
     print(outdir)
@@ -146,7 +146,7 @@ def allcombination(rgxfile_raw,rgfile_raw,outdir,golddf,goldcol,tpmfile,
 
 
 
-def cut_distance(df,rgdf,maxdis=100000): #df是RgxDf
+def cut_distance(df,rgdf,maxdis=100000): #df is an RgxDf DataFrame
     peakpos = (df[1] + df[2]) / 2
     tsspos = np.where(df.iloc[:, 8] == "+", df.iloc[:, 6], df.iloc[:, 7])
     peak2tss = abs(peakpos-tsspos)
@@ -154,7 +154,7 @@ def cut_distance(df,rgdf,maxdis=100000): #df是RgxDf
     cutdf.reset_index(drop=True, inplace=True)
     
     rgdf.index = rgdf[3]
-    rgdf[6] = cutdf.groupby(4)[11].sum() #这个不是基于deg文件的rgdf
+    rgdf[6] = cutdf.groupby(4)[11].sum() #Recalculate Rg values from the filtered RgxDf rather than the DEG-based rgdf
     cutrgdf= rgdf.dropna(subset=[rgdf.columns[6]])
     cutrgdf.reset_index(drop=True, inplace=True)
     
@@ -234,7 +234,7 @@ def adjStructure(rgxfile,structureFile, structureType, structureWeight,ignorehea
        'geneID', 'geneChr', 'geneStart', 'geneEnd', 'geneStrand',
        'geneSymbol', 'weight', 'Rgx_rawvalue', 'Rgx_percent']
     
-    # 计算 structure_weight_list
+    # calculate structure_weight_list
     if cpumode == "single":
         structure_weight_list = [compute_structure_weight((row, structureType, structureDF, structureWeight)) 
                                  for _, row in rgxdf.iterrows()]
@@ -252,14 +252,14 @@ def adjStructure(rgxfile,structureFile, structureType, structureWeight,ignorehea
                                             for _, row in rgxdf.iterrows()])
     else:
         raise ValueError("Invalid cpumode. Use 'single', 'joblib', or 'multi'.")
-    # 添加计算结果
+    # Apply structure-weighted adjustment
     rgxdf["Rgx_rawvalue"] = rgxdf["Rgx_rawvalue"] * structure_weight_list
     rgxdf["Rgx_percent"] = rgxdf["Rgx_percent"] * structure_weight_list
     #rgxdf["Rgx_percent"] = rgxdf["Rgx_rawvalue"] / rgxdf.groupby('geneID')['Rgx_rawvalue'].transform('sum')
     #rgxdf["Rgx_percent"].fillna(0)
     #rgxdf.to_csv(outname+".tsv", sep="\t", index=False)
 
-    # 处理 rgfile
+    # Process rgfile
     if rgfile:
         if ignorehead:
             rgdf = pd.read_csv(rgfile, sep="\t", header=None, skiprows=1)
@@ -352,17 +352,17 @@ def plotdensity(rgxfile_raw,indir,matchedwithhead = False,matchcol=12,truecol=11
     
     plt.figure(figsize=(3,3))
     kdeplot = sns.kdeplot(normrgx_non0, color="#6A5ACD", fill=False, linewidth=2, label="Density")
-    # 阈值线位置
-    threshold_x = np.log2(1 + 1)  # 即 log2(2) = 1
-    # 添加虚线
+    # Position of the threshold line
+    threshold_x = np.log2(1 + 1)  
+    # Add a vertical dashed line
     plt.axvline(x=threshold_x, color='#2E8B57', linestyle='--', linewidth=1.5, label="normRgx = 1")
-    # 添加阴影区域（大于阈值部分）
+    # Shade the region above the threshold
     x_vals = np.linspace(normrgx_non0.min(), normrgx_non0.max(), 1000)
     kde_vals = kdeplot.get_lines()[0].get_data()
     x_kde, y_kde = kde_vals
-    # 用 fill_between 填充大于阈值的区域
+    # Fill the area where x exceeds the threshold
     plt.fill_between(x_kde, y_kde, where=(x_kde > threshold_x), color='orange', alpha=0.3, label="Above threshold")
-    # 图形标题和标签
+    # Plot title and axis labels
     plt.title(indir, fontsize=11)
     plt.xlabel("normRgx (exclude 0)", fontsize=10)
     plt.ylabel("Density", fontsize=10)

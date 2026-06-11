@@ -9,19 +9,20 @@ from statsmodels.stats.multitest import multipletests
 
 def merge_and_average(df1, df2, column_index):
     if df1.shape != df2.shape:
-        raise ValueError("两个 DataFrame 的形状不匹配，请检查。")
+        raise ValueError("Input DataFrames must have identical shapes.")
     new_df = df1.copy()
     new_df.iloc[:, column_index] = (df1.iloc[:, column_index] + df2.iloc[:, column_index]) / 2
     return new_df
 
 def bed_intersect(df1: pd.DataFrame, df2: pd.DataFrame,mode: str = 'intersect') -> pd.DataFrame:
     """
-    对两个 DataFrame 做 bedtools 样式的 intersect 操作。
-    前三列必须是 BED 格式 (chr/start/end)，会自动重命名为 Chromosome/Start/End。
-    
-    返回一个包含交集的新 DataFrame。
+    Perform a bedtools-like intersect operation between two DataFrames.
+    The first three columns must follow BED format (chr/start/end) and will
+    be automatically renamed to Chromosome/Start/End.
+
+    Returns a DataFrame containing the resulting intervals.
     """
-    # 重命名前3列为标准BED格式
+    # Rename the first three columns to standard BED format
     df1 = df1.rename(columns={
         df1.columns[0]: "Chromosome",
         df1.columns[1]: "Start",
@@ -33,17 +34,17 @@ def bed_intersect(df1: pd.DataFrame, df2: pd.DataFrame,mode: str = 'intersect') 
         df2.columns[2]: "End"
     })
 
-    # 转换 Start/End 为整数
+    # Convert Start/End columns to integers
     df1["Start"] = df1["Start"].astype(int)
     df1["End"] = df1["End"].astype(int)
     df2["Start"] = df2["Start"].astype(int)
     df2["End"] = df2["End"].astype(int)
 
-    # 转换为 PyRanges
+    # Convert DataFrames to PyRanges objects
     gr1 = pr.PyRanges(df1)
     gr2 = pr.PyRanges(df2)
 
-    # 执行操作
+    # Perform the selected operation
     if mode == 'subtract':
         result = gr1.subtract(gr2)
     elif mode == 'intersect':
@@ -51,9 +52,9 @@ def bed_intersect(df1: pd.DataFrame, df2: pd.DataFrame,mode: str = 'intersect') 
     elif mode == "intersectV":
         result = gr1.overlap(gr2, invert=True)
     else:
-        raise ValueError("mode 只能是 'subtract' 或 'intersect'")
+        raise ValueError("mode must be 'subtract' or 'intersect'")
 
-    # 返回结果 DataFrame
+    # Return the result as a DataFrame
     return result.df
 
 
@@ -65,8 +66,8 @@ def plotFDRbox(selectp,otherp):
         [selectp, otherp],
         patch_artist=True,
         widths=0.6,
-        boxprops=dict(facecolor="#26A69A", color="#333333",alpha=0.5),  # 青绿色
-        medianprops=dict(color="#FF6F61", linewidth=2),       # 珊瑚粉 median
+        boxprops=dict(facecolor="#26A69A", color="#333333",alpha=0.5),
+        medianprops=dict(color="#FF6F61", linewidth=2),      
         whiskerprops=dict(color="#999999", linestyle="--"),
         capprops=dict(color="#999999"),
         flierprops=dict(marker='o', color='gray', alpha=0.3)
@@ -76,12 +77,12 @@ def plotFDRbox(selectp,otherp):
     plt.ylabel('-log10(qvalue)', fontsize=11)
     ymax = max(max(selectp), max(otherp))
     plt.ylim(0, ymax * 1.1)
-    # 去掉右边和顶边框线
+    # Remove top and right spines
     for spine in ['right', 'top']:
         plt.gca().spines[spine].set_visible(False)
-    # 统计检验
+    # Statistical test
     stat, pval = mannwhitneyu(selectp, otherp, alternative='two-sided')
-    # 写入 p 值
+    # Display p-value
     plt.text(1.5, max(max(selectp), max(otherp)) * 1.05,f'p = {pval:.2e}', ha='center', fontsize=10)
     plt.title("in silico deletion FDR", fontsize=12)
     plt.tight_layout()
@@ -114,10 +115,11 @@ def silico(RgxDF_Ctrl,deletepeakDF,nrandom=20,degDF=None,degtype="all",degfdr=0.
         randomdiffi = abs(eachrow)
         selectdiffi = abs(diffrg[index])
         if np.all(randomdiffi == 0):
-            print("差值全为 0，Wilcoxon 检验不适用。")
+            print("All differences are zero; Wilcoxon test is not applicable.")
             _, wilcoxp = None, 1.0
         else:
-            _,wilcoxp = wilcoxon([selectdiffi - x for x in randomdiffi],alternative="greater") #选中的差异比随机值大
+            #Test whether the selected difference is greater than random differences
+            _,wilcoxp = wilcoxon([selectdiffi - x for x in randomdiffi],alternative="greater") 
         wilcoxplist.append(wilcoxp)
 
     _, fdr_pvals, _, _ = multipletests(wilcoxplist, method='fdr_bh')

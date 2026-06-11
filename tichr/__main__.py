@@ -1,9 +1,19 @@
 import argparse
 import os
-
 from .tichr import *
 from .context import *
 from .siteToGene import *
+
+# TICHR Command Line Interface (CLI)
+# Main entry point of TICHR.
+#
+# Available modules:
+#   calcu   : Calculate site-to-gene (RgX) and gene-level (Rg) regulation
+#   adjust  : Adjust RgX/Rg using transcriptional and structural information
+#   neg     : Identify context-specific repressive regulation
+#
+# Most advanced analyses are available through the Python API.
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -18,6 +28,17 @@ def main():
 
 #------------------------------------------------------------------
     #Function1 One line command to calculate Rg and RgX
+    # Core TICHR workflow:
+    #   1. Generate candidate regulatory sites
+    #   2. Quantify epigenomic signals
+    #   3. Process Hi-C contacts (optional)
+    #   4. Compute site-to-gene regulation (RgX)
+    #   5. Aggregate RgX into gene-level regulation (Rg)
+    #
+    # Output:
+    #   - RgxDf : site-to-gene regulatory links
+    #   - RgDf  : gene-level regulatory scores
+
     def func_calcu(args):
         print("Creating Tichr object...")
         args.readFileList = args.readFileList.split(",")
@@ -31,7 +52,8 @@ def main():
                         hicfilepath=args.hicfilepath,readFileList2=args.readFileList2)
         print("Start makeSiteBed...")
 
-
+        # Generate candidate regulatory elements
+        # (user BED, MACS2 peaks, surrounding bins...)
         tichobj.makeSiteBed(macs2species=args.macs2species,binResolution=args.binResolution,
                     blackregion=args.blackregion,tmpdir=args.tmpdir,fixPeakWidth=args.fixPeakWidth)
         print("Finish makeSiteBed")
@@ -39,36 +61,32 @@ def main():
         
 
         print("Start makeSiteBdg...")
+        # Quantify epigenomic signal intensity
+        # for all candidate regulatory sites
         tichobj.makeSiteBdg(args.coverageMethod,spmr = args.spmr,multiBAMmerge=args.multiBAMmerge,file_type=args.file_type,)
         print("Finish makeSiteBdg")
         
         if args.hicfilepath:
             print("Start process HiC...")
+            # Extract and normalize chromatin contacts
+            # from Juicer .hic files
             tichobj.proceessHiC(args.hicRes,args.hicDataType,args.hicNormType,juicertool=args.juicertool,
                                 threads=args.threads,contactNorm=args.contactNorm,)
             print("Finish process HiC")
 
 
         print("Start Computing...")
+        # Compute site-to-gene weights and regulatory strength
         tichobj.computeAllGene(args.weightType,fixedFunctionType=args.fixedFunctionType,halfDistance=args.halfDistance,
                                setpromoter1=args.setpromoter1,threads=1,ifUseHiCRef=args.ifUseHiCRef,
                                noise_ratio=args.noise_ratio, noise_quantile=args.noise_quantile)
     
-
         print("Saving files...")
         tichobj.save(outname=args.outname, header=args.outhead)
 
         print("Finish Computing...")
         tichobj.clean()
-
-
-
-
-    
-
-
-        
-        
+  
 
     #input file
     parser_calcu = subparsers.add_parser("calcu", help="Calculate Rg and RgX based on multiomics data")
@@ -174,6 +192,12 @@ def main():
 #     context_output = parser_diff.add_argument_group("Output argument for context-specific analysis")
 #     context_output.add_argument("--outname",default="TF")
 
+
+    # Adjust regulatory scores using:
+    #   1. Raw RgX
+    #   2. Gene expression concordance (diffrank/sumrank)
+    #   3. Higher-order chromatin structures (TADs, loops, boundaries, stripes, compartments)
+
     def func_adjust(args):
 
         if not os.path.exists(args.outdir):
@@ -236,7 +260,7 @@ def main():
     parser_adjust.set_defaults(func=func_adjust)
 
 #---------------------------------------
-
+# Identify context-specific repressive regulation.
     def func_negative(args):
         print("Merging data frames...")
         rg_merged,rgx_merged = mergeDF(args.rgCtrl,args.rgTreat,args.rgxCtrl,args.rgxTreat,
@@ -280,7 +304,7 @@ def main():
 
     parser_neg.set_defaults(func=func_negative)
     
-
+# Not used
 #     def contextfunc(args):
 #         if args.type ==  "test":
 #             prepare_select_by_rank(args.mergedRgFile, args.rg_ctrl_col, args.rg_treat_col, args.tpm_col, args.logfc_col, 
@@ -311,7 +335,7 @@ def main():
         sys.exit(0)
         
     if args.version:
-        print("tichr version 0.1.4")
+        print("tichr version 0.1.19")
         exit(0)
     try:
         func = args.func
@@ -319,7 +343,6 @@ def main():
         parser.error("Too few arguments, please specify more parameters")
     func(args)
 
-    
 
 if __name__ == '__main__':
     main()  

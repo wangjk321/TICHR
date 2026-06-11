@@ -9,7 +9,7 @@ awk -v OFS="\t" \
      $6 == "-" {print $1,$3-"'$tssrange'",$3+"'$tssrange'",$4,$7}' \
      $refgene_file |sortBed > refgene_tss.temp
 
-#标记每个位点是否是promoter
+# Mark whether each site is a promoter
 sortBed -i $candidatesite_file |\
     coverageBed -a stdin -b $readcoverage_file -counts |\
     intersectBed -c -a stdin -b refgene_tss.temp > $outname

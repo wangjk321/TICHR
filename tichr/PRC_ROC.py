@@ -150,7 +150,7 @@ def showROC(stand1,score1,label1='curve1',
 def corrABC(myabc_common,realabc_common,iflog=False,xlim=1,ylim=1):
 
     plt.figure(figsize=(4,4))
-    # 绘制散点图
+    # Draw scatter plot
     if iflog:
         plt.scatter(np.log1p(myabc_common*100), np.log1p(realabc_common*100), 
                 s=10, alpha=0.1, color='navy')
@@ -163,12 +163,12 @@ def corrABC(myabc_common,realabc_common,iflog=False,xlim=1,ylim=1):
     plt.xlabel("Built-in ABC (SCALE)")
     plt.ylabel("Original method (KR)")
 
-    # 添加标题
+    # Add title
     plt.title("Comparison of built-in ABC and original ABC")
 
-    # 显示网格线
+    # Display grid lines
     plt.grid(True)
 
-    # 显示图形
+    # Display the figure
     plt.show()
     

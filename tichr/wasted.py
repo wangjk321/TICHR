@@ -1,3 +1,7 @@
+# Note
+# This is for trash box
+
+
 def convert_bedgraph(input_file, output_file, resolution=100):
     with open(input_file, 'r') as infile, open(output_file, 'w') as outfile:
         for line in infile:
@@ -7,13 +11,12 @@ def convert_bedgraph(input_file, output_file, resolution=100):
                 new_end = min(i + resolution, end)
                 outfile.write(f"{chr}\t{i}\t{new_end}\t{value}\n")
 
-input_file = "input.bedgraph"   # 输入的BEDGraph文件
-output_file = "output.bedgraph" # 输出的100bp分辨率BEDGraph文件
+input_file = "input.bedgraph"   # Input BEDGraph file
+output_file = "output.bedgraph" # Output BEDGraph file at 100-bp resolution
 
 convert_bedgraph(input_file, output_file)
 
 
-#原myabc
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -78,7 +81,7 @@ class calculate_abc:
         if not candidatesite_file:
             if not blackregion:
                 with open("blackregion.blank.tmp", 'w') as file:
-                    pass  # 不写入任何内容
+                    pass  # blank content
                 blackregion="blackregion.blank.tmp"
             
             print("Call candidate enhancer sites from bam files")
@@ -186,11 +189,11 @@ class calculate_abc:
                 hic_contact = self.nomhicdf[geneichr].reindex(sparseindex)["counts"]
 
             #qc gene
-            badgene_threshold = 0.01 #排除没有链接的基因
+            badgene_threshold = 0.01 # Exclude genes with little or no valid contact signal
             if np.nansum(hic_contact) < badgene_threshold:
                 hic_contact = plfit_contact
             
-            #fillna
+            # Replace NaN values with zeros
             hic_contact = np.nan_to_num(hic_contact)
 
             geneicontactlist = hic_contact * (plref_contact/plfit_contact) + pseudo_contact
@@ -199,13 +202,13 @@ class calculate_abc:
 
 
         geneiabcsum = geneiabc.sum()
-        if geneiabcsum >0: #判断是否全为0
+        if geneiabcsum >0: # Avoid division by zero when all values are zero
             geneiabc_percent = geneiabc/geneiabcsum
         else:
             geneiabc_percent = geneiabc * 0 
 
         if setpromoter1:
-            geneiabc_percent[ifpromoter] = 1 #启动子设置为1
+            geneiabc_percent[ifpromoter] = 1 # Assign a weight of 1 to promoter regions
 
         geneiabc_df=geneipeaklist.iloc[:,0:4].copy()
         geneiabc_df.columns = ["peakchr",'peakstart','peakend','activity']
@@ -240,14 +243,15 @@ class calculate_abc:
             outdf['ABCsum_gene']=abcgenelist
             return(outdf)
             
-
-    def getABC_allgene_multiprocess(self,nthread): #多进程--> 不共享内存，适合计算密集型，如果变量很大的话，占用很多内存
+    # Multiprocessing: does not share memory; suitable for CPU-intensive tasks, but may use substantial memory for large variables
+    def getABC_allgene_multiprocess(self,nthread): 
         function = self.getABC_genei
         rangeindex = range(self.genedf.shape[0])
         abcdf = pd.concat(multicpu_eachindex(function,rangeindex,threads=nthread), ignore_index=True)
         return(abcdf)
     
-    def getABC_allgene_multithread(self,nthread):  #多线程--> 共享内存，适合大量小的运算
+    # Multithreading: shares memory; suitable for many small tasks
+    def getABC_allgene_multithread(self,nthread):  
         abcdf = pd.DataFrame()
         function = self.getABC_genei
         rangeindex = range(self.genedf.shape[0])
@@ -345,19 +349,19 @@ def compareAdjust(rgxdir,golddf,outdir,tpmfile,tpmcol,goldcol,
 #makeSurrondingBin.py
 
 def extract_values_from_bedgraph_pandas(df, chromosome, start, end):
-    # df 是给定bedgraph文件，
+    # df is the input bedGraph DataFrame
     start=start-1
     #end=end+1
 
-    # 过滤特定染色体的数据
-    #！！！！！！！！！！！！！！这一步特别特别慢
+    # Filter data for the specified chromosome
+    # This step is extremely slow
     df['chrom'] = pd.Categorical(df['chrom'])
     df_chrom = df[df['chrom'] == chromosome]
     
-    # 过滤特定区间的数据
+    # Filter data for the specified genomic interval
     df_filtered = df_chrom[(df_chrom['end'] >= start) & (df_chrom['start'] <= end)]
     
-    # 提取每个bp的值
+    # Extract the value for each base pair
 
     result_length = end - start
     values = np.zeros(result_length)

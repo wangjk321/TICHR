@@ -8,7 +8,7 @@ spmr_flag=$7
 refgene_file=$8
 tssrange=$9
 
-#标记每个位点是否是promoter
+# Mark whether each site is a promoter
 awk -v OFS="\t" \
     '$6 == "+" {print $1,$2-"'$tssrange'",$2+"'$tssrange'",$4,$7} \
      $6 == "-" {print $1,$3-"'$tssrange'",$3+"'$tssrange'",$4,$7}' \

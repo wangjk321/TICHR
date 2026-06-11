@@ -8,7 +8,7 @@ def plot_one_gene(file_path, timepoint_counts, title, time_points=None, outdir=N
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
-    # 固定时间点顺序
+    # Use a fixed order for time points
     if time_points==None:
         time_points=[]
         for i in range(timepoint_counts):
@@ -21,7 +21,7 @@ def plot_one_gene(file_path, timepoint_counts, title, time_points=None, outdir=N
 
     columns = time_points
 
-    # 创建 figure + 双 y 轴
+    # Create the figure and dual y-axes
     fig, ax1 = plt.subplots(figsize=(3, 3))
     #ax2 = ax1.twinx()
     ax1.spines['top'].set_visible(False)
@@ -30,7 +30,7 @@ def plot_one_gene(file_path, timepoint_counts, title, time_points=None, outdir=N
     all_logs = []
     total_vals = np.zeros(len(time_points))
 
-    # 第一步：画个体曲线到 ax1
+    # First pass: plot individual trajectories on ax1
     for _, row in df.iterrows():
         vals = [row[c] + 1 for c in columns]
         log_vals = np.log10(vals)
@@ -47,21 +47,21 @@ def plot_one_gene(file_path, timepoint_counts, title, time_points=None, outdir=N
         else:
             pass
 
-        # 同时累加原始值用于 sum
+        # Accumulate raw values for the total signal
         total_vals += [row[c] for c in columns]
     
 
-    # 关闭网格
+    # Disable grid lines
     ax1.grid(False)
 
-    # x 轴紧贴边界
+    # Make the x-axis span exactly the time-point range
     ax1.set_xlim(time_points[0], time_points[-1])
     y_min, y_max = min(all_logs), max(all_logs)
     ax1.set_ylim(y_min, y_max)
 
-    # 左侧 y 轴——个体曲线
+    # Left y-axis: individual trajectories
     ax1.set_ylabel(f'Rgx (log1p)', fontsize=12)
-    # 匹配 Target 曲线颜色
+    # Match the y-axis label color to the target curve
     ax1.yaxis.label.set_color('#01579B')
     # ax1.tick_params(axis='y', colors='#C69287')
 
@@ -88,7 +88,7 @@ def lfc_two(rgx1, rgx2, extra_df=None, extra_name=None):
         "geneID", "weight", "Rgx_rawvalue", "Rgx_percent"
     ])
 
-    # 1) basedf 去重 + 重置索引
+    # 1)  Create the base gene table by removing duplicates and resetting the index
     basedf = (
         rgx1df[['geneChr', 'geneStart', 'geneEnd', 'geneStrand', 'geneID', 'geneSymbol']]
         .drop_duplicates()
@@ -304,7 +304,7 @@ def calculate_lfc(df, features, timepoint_counts):
     return df_final, lfc_cols_list
 
 def lfc_multi(RgxDfs, extra_file=None, extra_name=None, time_points=None):
-    #建一个基础的df，后面对它左连接
+    # Create a base DataFrame for subsequent left joins
     rgx1df = pd.read_csv(RgxDfs[0], sep="\t", header=None, names=[
         "peakChr", "peakStart", "peakEnd", "epigenomeActivity",
         "geneSymbol", "geneChr", "geneStart", "geneEnd", "geneStrand",
@@ -419,7 +419,7 @@ def plot_timecourses_grid(df, features, timepoints, alpha, ylims,outlabel="wangN
         ax = axes[idx]
         cols = [f"{metric}_{tp}" for tp in timepoints]
         if set(cols) - set(df.columns):
-            raise KeyError(f"无法在文件中找到以下列：{set(cols) - set(df.columns)}")
+            raise KeyError(f"Missing the following columns in the input file: {set(cols) - set(df.columns)}")
         sub = df[cols].astype(float)
         # data = np.log10(sub + 1)
         data=sub
@@ -513,7 +513,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
 def combine_multi_timepoints(RgxDfs, extra_file=None, extra_name=None, time_points=None):
-    #建一个基础的df，后面对它左连接
+    #  Create a base DataFrame for downstream left joins
     rgx1df = pd.read_csv(RgxDfs[0], sep="\t", header=None, names=[
         "peakChr", "peakStart", "peakEnd", "epigenomeActivity",
         "geneSymbol", "geneChr", "geneStart", "geneEnd", "geneStrand",
@@ -586,7 +586,7 @@ def plot_TSR(df, feature, timepoint_counts, times):
         plt.figure(figsize=(4, 4))
 
         for idx, group in enumerate(groups):
-            # 计算median_tpm（归一化后）
+            # Calculate median TPM after min-max normalization
             median_tpm = group[timepoints].apply(
                 lambda x: (x - x.min()) / (x.max() - x.min()) * 100 if x.max() != x.min() else [50]*len(x), axis=1
             ).median(axis=0)

@@ -26,14 +26,14 @@ def dense_to_long(mat, resolution=50000):
     n = mat.shape[0]
 
     for i in range(n):
-        for j in range(i, n):  # 只遍历上三角
+        for j in range(i, n):  # Iterate over the upper triangle only
             c = mat[i, j]
             if c == 0 or np.isnan(c):
                 continue
 
             posX = i * resolution
             posY = j * resolution
-            idx = f"{posX}to{posY}"  # 用作 index
+            idx = f"{posX}to{posY}"  # Use as the index
 
             rows.append([idx, posX, posY, c])
 
@@ -76,7 +76,9 @@ def noFurtherNormalizeSparse(records):
 
 def scale0to1Sparse(records):
     df = pd.DataFrame(records, columns=["posX", "posY", "counts"])
-    df["counts"] = df["counts"] / df["counts"].quantile(0.95) #本来想用max的，但考虑到有极大值。
+    # Scale counts by the 95th percentile instead of the maximum value
+    # to reduce the influence of extreme outliers
+    df["counts"] = df["counts"] / df["counts"].quantile(0.95) 
     df.index = df.posX.astype(str)+"to"+df.posY.astype(str)
     return(df)
 
@@ -159,8 +161,13 @@ def paral_sparse(hicfilepath,chri,hicnorm,hicres,gtdf,contactNorm='abc'):
         nomhicchri = oeNormalizeSparse(records,outType="OE")
     elif contactNorm == 'default':
         nomhicchri = noFurtherNormalizeSparse(records)
-    elif contactNorm == '0to1': #如果把Hi-C根据最大值或总和标准化的前提是不同样本之间总的接触强度是一个恒定值，可用去区分局部基因组位点之间的差异。
-                                            # 但如果多个样本本身的contact总和不是恒定的，比如一个样本完全没有接触，另一个样本有很多接触，这样标准化其实不够公平。
+    
+    elif contactNorm == '0to1': 
+        # This normalization assumes that the overall contact intensity is comparable
+        # across samples and is mainly used to capture local differences between genomic regions.
+        # However, if the total contact intensity varies substantially between samples
+        # (e.g., one sample has almost no contacts while another has many),
+        # this normalization may not be appropriate.                                    
         nomhicchri = scale0to1Sparse(records)
     elif contactNorm == "total":
         nomhicchri = totalNormSparse(records)
@@ -219,11 +226,11 @@ def gethicfile(hicfilepath,hicres,hictype,genechrlist,
 
     return(nomhicdf)
 
-def multicpu_eachindex(func,rangeindex,threads): #多进程
+def multicpu_eachindex(func,rangeindex,threads): #Multiprocessing
     pool = Pool(threads)
-    # 使用 map 函数并行处理任务，并获取结果
+    # Use map to process tasks in parallel and collect results
     abcdflist=pool.map(func,rangeindex)
-    # 关闭进程池
+    # Close the process pool
     pool.close()
     pool.join()
     return(abcdflist)
@@ -234,14 +241,15 @@ def calculate_diff_and_values(hicdf):
     def process_element(i, j):
         diff = abs(i - j)
         value = hicdf[i, j]
-        # 将距离差值和元素值添加到字典中
+        # Add the distance difference and element value to the dictionary
         values_dict.setdefault(diff, []).append(value)
     
     for i in range(binnumber):
         for j in range(i + 1, binnumber):
             process_element(i, j)
     
-    # 创建新的 DataFrame，列出所有可能的差值和对应的元素值
+    # Create a new DataFrame containing all possible distance differences
+    # and their corresponding mean contact values
     result_df = pd.DataFrame(columns=["dist_for_fit", "hic_contact"])
     for diff, values in values_dict.items():
         result_df = pd.concat([result_df,pd.DataFrame({"dist_for_fit": [diff], "hic_contact": np.mean(values)})],ignore_index=True)
@@ -318,10 +326,8 @@ def normalizehic_old(matrixfile,res,given_gamma,given_scale,ref_gamma,ref_scale,
             upperindex=lenhic-1
         hicdf[i,i]= max(hicdf[i, lowerindex], hicdf[i, upperindex])
 
-
-
-    # 应该不需要fit
     '''
+    # no need
     print("Fit the powerlaw...") 
     dis_and_contact = calculate_diff_and_values(np.array(hicdf))
     pseudocount = 0.000001
@@ -342,7 +348,7 @@ def normalizehic_old(matrixfile,res,given_gamma,given_scale,ref_gamma,ref_scale,
     fitdf = fitdf_refdf[:, 0, :]
     refdf = fitdf_refdf[:, 1, :]
     pseudodf = fitdf_refdf[:, 2, :]
-    #这些都不用
+    # No need
 
     # Gene promoters with insufficient hic coverage should get replaced with powerlaw
 
@@ -436,15 +442,15 @@ def quantile_normalize_any(dfinput,refdf,signaltype,column=3,method="rankpercent
 
     if method=='rankpercent':
         interpfunc_any = interpolate.interp1d(ref_any["quantile"],ref_any[signaltype],
-                                kind="linear",fill_value="extrapolate",) #拟合
+                                kind="linear",fill_value="extrapolate",) #fit
         df.loc[:, "quantile"] = df.loc[:, column].rank() / len(df)
-        df.loc[:, column] = interpfunc_any(df.loc[:,"quantile"]).clip(0) #应用
+        df.loc[:, column] = interpfunc_any(df.loc[:,"quantile"]).clip(0) #apply
     elif method == 'rank':
         interpfunc_any = interpolate.interp1d(ref_any["rank"],ref_any[signaltype],
-                                kind="linear",fill_value="extrapolate",) #拟合
+                                kind="linear",fill_value="extrapolate",) #fit
         #df.loc[:, "quantile"] = (1- (df.loc[:, column].rank() / len(df)))*len(df)
         df.loc[:, "quantile"] = len(df)- df.loc[:, column].rank()
-        df.loc[:, column] = interpfunc_any(df.loc[:,"quantile"]).clip(0) #应用
+        df.loc[:, column] = interpfunc_any(df.loc[:,"quantile"]).clip(0) #apply
 
     outdf = df.iloc[:,0:5]
     return(outdf)

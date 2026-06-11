@@ -30,10 +30,10 @@ def makeSiteBedFunction(candidatesite,candidateGeneFile,readFileList,gtfile,
         refgene_file=tmpdir+"/refgene_file.blank.tmp"
     
     print("***Setting candidate sites")
-    # candidatesite 的类型有三种：
-    # 一是给定bed文件
-    # 二是通过对bamfile call peak
-    # 三是启动子周围的所有区间
+    # Candidate sites can be defined in three ways:
+    # 1. From a given BED file
+    # 2. By calling peaks from BAM files
+    # 3. From all regions around promoters
     if candidatesite == "denovo_peak":
         print("......Call peaks from the given bam files")
         subprocess.run(["bash", codepath + "/bashcode/ABC_make_candidate.sh",
@@ -80,7 +80,7 @@ def makeSiteBdgFunction(candidatesite_file,readFileList,gtfile,coverageMethod,fi
 
 
     if not refgene_file:
-        with open(tmpdir+"/refgene_file.blank.tmp", 'w') as file: pass  # 不写入任何内容
+        with open(tmpdir+"/refgene_file.blank.tmp", 'w') as file: pass  # blank file
         refgene_file=tmpdir+"/refgene_file.blank.tmp"
     
     codepath = os.path.dirname(os.path.realpath(__file__))
@@ -329,7 +329,7 @@ def check_bed_vs_genome(bed_file, genome_table):
         start = int(row.start)
         end = int(row.end)
 
-        # 1. chr 未在 genome table 出现
+        # 1. Chromosome not found in the genome size table
         if chrom not in chrom_sizes:
             errors.append((idx, chrom, start, end, "Chrom_not_in_genome"))
             continue
@@ -348,12 +348,12 @@ def check_bed_vs_genome(bed_file, genome_table):
         if start >= end:
             errors.append((idx, chrom, start, end, "Start_ge_End"))
 
-    # 输出结果
+    # Report results
     if not errors:
         print("✔ No BED errors found. All intervals are within genome bounds.")
     else:
         print(f"❌ Found {len(errors)} problematic BED entries:\n")
-        for e in errors[:20]:  # 只打印前 20 条
+        for e in errors[:20]:  # Print only the first 20 entries
             print(e)
 
         raise ValueError(f"Found {len(errors)} problematic BED entries. See bed_errors.tsv for details.")

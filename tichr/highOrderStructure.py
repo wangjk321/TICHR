@@ -4,7 +4,7 @@ import time
 from sys import exit
 
 def weightStructureFunc(structureType,structureDF,structureWeight,peakPos,tssPos,chrnum):
-    #注意这个chrnum是chr1还是1的形式
+    ## chrnum can be either "chr1" or "1"
     if not structureType: 
         return(1)
 
@@ -21,9 +21,9 @@ def weightStructureFunc(structureType,structureDF,structureWeight,peakPos,tssPos
         exit(1)
 
 def weightStructureFuncOne(structureType,structureDF,structureWeight,peakPos,tssPos,chrnum):
-    # structureDataType in ["boundary","tad","loop","compartment"]
-    # boundary is similar to tad, but different.
-    # if ture, give a weight to peak-to-gene
+    # StructureDataType in ["boundary","tad","loop","compartment"]
+    # Boundary is similar to tad, but different.
+    # If ture, give a weight to peak-to-gene
     if not structureType: 
         return(1)
 

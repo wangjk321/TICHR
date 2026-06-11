@@ -36,16 +36,16 @@ import matplotlib.pyplot as plt
 def plot_correlation_scatter(corrrg_list, corrdelta_list,factorlist,corrtype="pearson",title="title",outname="correlation_scatter.pdf"):
     plt.figure(figsize=(4, 4))
     
-    # 散点图
+    # Scatter plot
     plt.scatter(corrrg_list, corrdelta_list, color="#AB47BC", s=100, edgecolor="black", linewidth=0.8)
 
-    # 添加文本标签
+    # Add text labels
     texts = []
     for i, wtype in enumerate(factorlist):
         x, y = corrrg_list[i], corrdelta_list[i]
         texts.append(plt.text(x, y, wtype, fontsize=9))
 
-    # 自动调整标签位置
+    # Automatically adjust label positions
     adjust_text(
         texts,
         only_move={'points': 'y', 'text': 'xy'},

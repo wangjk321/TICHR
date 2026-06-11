@@ -22,20 +22,19 @@ def wrapped_calculateRP_wang(args):
 
 
 def extract_values_from_bedgraph_pandas(df, chromosome, start, end):
-    # df 是给定bedgraph文件，
+    #  df is the input bedGraph DataFrame
     start=start-1
     #end=end+1
 
-    # 过滤特定染色体的数据
-    #！！！！！！！！！！！！！！这一步特别特别慢
+    # Filter data for the specified chromosome
+    # This step is slow
     df['chrom'] = pd.Categorical(df['chrom'])
     df_chrom = df[df['chrom'] == chromosome]
     
-    # 过滤特定区间的数据
+    # Filter data for the specified genomic interval
     df_filtered = df_chrom[(df_chrom['end'] >= start) & (df_chrom['start'] <= end)]
     
-    # 提取每个bp的值
-
+    # Extract the value for each base pair
     result_length = end - start
     values = np.zeros(result_length)
 
@@ -51,7 +50,7 @@ def extract_values_from_bedgraph_pandas(df, chromosome, start, end):
     
     return values
 
-def calcu_weight(z,decay_distance,rpweight): #z是正数
+def calcu_weight(z,decay_distance,rpweight): #z should be a positive value
     if rpweight == 'marge':
         lamda = -math.log(1/3)*1e5/decay_distance
         weight = 2*math.exp(-lamda*z/1e5)/(1.0+math.exp(-lamda*z/1e5)) 
@@ -109,7 +108,9 @@ class myRP:
     def __init__(self,genebedfile,bamfilelist,gtfile,padding = int(1e5),decay_distance=10000,rpweight="classic",species='hs',
                  predictEP=False,candidatebed=None,rpresolution=1,tssrange=500,bamfilelist2=None,
                  quantileref=None,signaltype=None,separatepromoter=False,quantile_method=None,signaltype2=None,generef=None):
-        self.geneDF= pd.read_csv(genebedfile,sep='\t',header=None) #chr,start,end,symbol,geneid,strands 第五列实在不行换其他的也行
+        self.geneDF= pd.read_csv(genebedfile,sep='\t',header=None) 
+        # chr, start, end, symbol, geneid, strand
+        # The fifth column (geneid) can be replaced with another identifier if necessary.
 
         print("Extracting read from raw read files...")
         #os.system("bash "+codepath+"/bashcode/preprocessRP.sh "+bamfile+" "+gtfile+" "+species+" &> info.txt") 
@@ -162,13 +163,13 @@ class myRP:
         else:
             geneirp_iflog = geneirp
         
-        if geneirp.sum()>0: #判断是否全为0
+        if geneirp.sum()>0: # Check whether all values are zero
             geneirp_percent = geneirp_iflog / (geneirp_iflog.sum())
         else:
             geneirp_percent = geneirp_iflog * 0
 
         if setpromoter1:
-            geneirp_percent[ifpromoter] = 1 #启动子设置为1
+            geneirp_percent[ifpromoter] = 1 # Set promoter-associated sites to 1
 
         geneirp_df=geneipeaklist.iloc[:,0:4].copy()
         geneirp_df.columns = ["peakchr",'peakstart','peakend','activity']
@@ -191,7 +192,7 @@ class myRP:
             rpepdf = pd.concat([rpepdf,rpepdf_genei], ignore_index=True)
         return(rpepdf)
 
-    def calculateRP_wang(self,i): #计算第i个基因的RP
+    def calculateRP_wang(self,i): #Calculate RP for the i-th gene
         if i % 500 == 0:
             print(str(i)+" genes processed.")
 
@@ -230,7 +231,7 @@ class myRP:
         if threads > 1:
             pool = Pool(threads)
             rplist=pool.map(self.calculateRP_wang, range(numgene))
-            # 关闭进程池
+            # Close the processing pool
             pool.close()
             pool.join()
         elif threads==1:
@@ -248,7 +249,7 @@ class myRP:
         
         return(outdf)
 
-    def calculateRP(self,i): #计算第i个基因的RP
+    def calculateRP(self,i): # Calculate i-th gene
         if i % 500 == 0:
             print(str(i)+" genes processed.")
 
@@ -295,9 +296,9 @@ class myRP:
 
         if threads > 1:
             pool = Pool(threads)
-            # 使用 map 函数并行处理任务，并获取结果
+            # Process genes in parallel using multiprocessing
             rplist=pool.map(self.calculateRP, range(numgene))
-            # 关闭进程池
+            # Close the process pool
             pool.close()
             pool.join()
         elif threads==1:
