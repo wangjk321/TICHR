@@ -102,4 +102,7 @@ You can open an issue in this repository, or contact the developer (wangjk321@gm
 ## Citations
 In preparation, 2025.
 
+## Last update
+Jun 1st, 2026
+
 

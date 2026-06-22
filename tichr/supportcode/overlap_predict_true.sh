@@ -18,9 +18,20 @@ awk -v col2=$predictdf_gene_col 'NR==FNR{a[$1];next}($col2 in a)' ${prefix}_uniq
 golddf_genecol_plus=$(expr $golddf_colnum + $predictdf_gene_col)
 # Column index of the prediction gene ID after merging
 
-sed '1d' $golddf |sortBed|\
-	intersectBed -wa -wb -a stdin -b ${prefix}_predictdf_samegene.tmp |\
-        awk -v n=$golddf_gene_col -v m=$golddf_genecol_plus '$n==$m'	> ${prefix}_golddf_predictdf.tmp 
+#sed '1d' $golddf |sortBed|\
+#	intersectBed -wa -wb -a stdin -b ${prefix}_predictdf_samegene.tmp |\
+#        awk -v n=$golddf_gene_col -v m=$golddf_genecol_plus '$n==$m'	> ${prefix}_golddf_predictdf.tmp
+
+if [ "$golddf_has_colname" = True ]; then
+	sed '1d' $golddf | sortBed |\
+		intersectBed -wa -wb -a stdin -b ${prefix}_predictdf_samegene.tmp |\
+		awk -v n=$golddf_gene_col -v m=$golddf_genecol_plus '$n==$m' > ${prefix}_golddf_predictdf.tmp
+else
+	cat $golddf | sortBed |\
+		intersectBed -wa -wb -a stdin -b ${prefix}_predictdf_samegene.tmp |\
+		awk -v n=$golddf_gene_col -v m=$golddf_genecol_plus '$n==$m' > ${prefix}_golddf_predictdf.tmp
+fi
+
 
 golddf_abccol_plus=$(expr $golddf_colnum + $predictdf_ABC_col) #Column index of the score after merging
 
