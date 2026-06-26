@@ -3,11 +3,11 @@ from multiprocessing import Pool, cpu_count
 import os
 import warnings
 warnings.filterwarnings('ignore')
-
 from .PRC_ROC import *
 from .context import *
 from .highOrderStructure import *
 
+# This file contains the code for downstream analysis of enhancer prediction.
 
 def matchgold(rgxfile,golddf,outname,goldcol,percent=False,goldHead=False,returnDF=False,predGeneCol=10,predScoreCol=12):
     codepath = os.path.dirname(os.path.realpath(__file__))
@@ -191,7 +191,7 @@ def adjtpm(rgxfile,tpmfile,
     rgxraw[rgxvalue]=rgxadj
     rgxraw[rgxratio]=rgxpercentadj
     
-    if rgfile: #只有在rgxvalue指定为raw的时候有效
+    if rgfile: #  Only effective when rgxvalue is set to raw
         rgdf = pd.read_csv(rgfile,sep="\t",header=None)
         rgdf.index = rgdf[rggeneID]
         rgadj = rgxraw.groupby(rgxgeneID)[rgxvalue].sum()

@@ -12,6 +12,7 @@ from functools import partial
 from .tichr import *
 from .preprocess_hic import *
 
+# Application of TICHR in large-scale data containing many cells or samples.
 
 class largescale:
     def __init__(self,epiFile,genefile,hicFile,gt,hicRes=25000):

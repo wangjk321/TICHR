@@ -1,12 +1,13 @@
 from .RPmodel import *
 from .PRC_ROC import *
-
 import sys
 import seaborn as sns 
 import warnings
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
+
+# This file contains the code for predicting DEGs using Rg values.
 
 def makediffrank(list1,list2):
     rank1 = list1.rank()

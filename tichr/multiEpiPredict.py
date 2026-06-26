@@ -9,10 +9,9 @@ import matplotlib.gridspec as gridspec
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, classification_report, confusion_matrix
 import warnings
 warnings.filterwarnings('ignore')
-
 from .PRC_ROC import *
 
-
+# Combine multiple factors to study DEGs.
 
 def cut_distance(df,rgdf,maxdis=500000,natype="zero"):   #df is RgxDf
     peakpos = (df[1] + df[2]) / 2

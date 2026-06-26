@@ -335,7 +335,7 @@ def main():
         sys.exit(0)
         
     if args.version:
-        print("tichr version 0.1.19")
+        print("tichr version 0.2.0")
         exit(0)
     try:
         func = args.func

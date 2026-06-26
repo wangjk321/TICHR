@@ -10,6 +10,7 @@ if [ $# -ne 8 ]; then
   exit 1
 fi
 
+# Command parameters
 norm=$1
 matrixdir=$2
 hic=$3
@@ -22,6 +23,7 @@ randomstr=`date +%s%N | md5sum | head -c 8 #`
 uniqID=$chrlist$randomstr
 
 pwd=$(cd $(dirname $0) && pwd)
+#Juicer command
 juicertool="java -Xms512m -Xmx20480m -jar $juicer"
 gt=$build
 #chrlist=`cut -f 1 $gt`

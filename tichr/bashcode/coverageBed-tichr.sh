@@ -24,7 +24,8 @@ then
     sortBed -i $bedfile |\
         bedtools map -a stdin -b $outdir/macs2RP_treat_pileup.bdg -c 4 -o mean -null 0 |\
         intersectBed -c -a stdin -b $outdir/refgene_tss.temp > $outdir/candidateSiteCoverage.bdg
-        
+
+# default action      
 elif [ "$coverageMethod" == "coverageBed" ]
 then
     sortBed -i $bedfile | coverageBed -a stdin -b $bamfile -counts |\

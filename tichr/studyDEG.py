@@ -6,9 +6,9 @@ import warnings
 warnings.filterwarnings('ignore')
 from scipy.stats import wilcoxon,ttest_1samp
 import os
-
 from .PRC_ROC import *
 
+# This file contains the code for DEGs attribution analysis
 
 
 def benchmarkvalue(RgDF_Ctrl,RgDF_Treat,degtype="all",absfdr=1,padj=0.05):

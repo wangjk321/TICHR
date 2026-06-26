@@ -3,6 +3,8 @@ import numpy as np
 import time
 from sys import exit
 
+# define the adjustment for chromatin structural features.
+
 def weightStructureFunc(structureType,structureDF,structureWeight,peakPos,tssPos,chrnum):
     ## chrnum can be either "chr1" or "1"
     if not structureType: 

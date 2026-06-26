@@ -7,12 +7,12 @@ import time
 from multiprocessing import Pool
 from concurrent.futures import ProcessPoolExecutor
 from tqdm import tqdm
-
 from .preprocess_hic import *
+
+# This is an archived script.
 
 
 codepath = os.path.dirname(os.path.realpath(__file__))
-
 
 def wrapped_calculateRP_wang(args):
     index, calculateRP_wang_func, pbar = args

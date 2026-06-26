@@ -3,8 +3,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
-def plot_one_gene(file_path, timepoint_counts, title, time_points=None, outdir=None):
+# This file contains the time-series temporal analysis for TICHR
 
+def plot_one_gene(file_path, timepoint_counts, title, time_points=None, outdir=None):
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 

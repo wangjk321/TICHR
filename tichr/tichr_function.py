@@ -5,11 +5,9 @@ import os, time
 import tempfile
 import subprocess
 import pyBigWig
-
 from .preprocess_hic import *
 
-
-
+# This file contains the core functions for TICHR computations.
 
 def makeSiteBedFunction(candidatesite,candidateGeneFile,readFileList,gtfile,
                         species='hs',binResolution=100,peakToGeneMaxDistance=100000,

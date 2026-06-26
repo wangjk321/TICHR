@@ -10,11 +10,11 @@ import hicstraw
 from collections import defaultdict
 import threading
 import concurrent.futures
-
 from .dumphic import *
-
 import numpy as np
 import pandas as pd
+
+# Main code for processing Hi-C files
 
 def dense_to_long(mat, resolution=50000):
     """

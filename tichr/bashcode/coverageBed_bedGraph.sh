@@ -30,6 +30,7 @@ END {
 ' | sort -k1,1 -k2,2n |\
 intersectBed -c -a stdin -b $outdir/refgene_tss.temp > $outdir/candidateSiteCoverage.bdg
 
+# spmr normalization
 if [ "$spmr_flag" == "yes" ]
 then
     echo spmr_flag yes

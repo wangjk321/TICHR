@@ -7,6 +7,8 @@ from scipy.stats import wilcoxon,ttest_1samp
 from statsmodels.stats.multitest import multipletests
 
 
+# insilico deletion for enhancer identifications
+
 def merge_and_average(df1, df2, column_index):
     if df1.shape != df2.shape:
         raise ValueError("Input DataFrames must have identical shapes.")

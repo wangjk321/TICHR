@@ -9,6 +9,7 @@ import warnings
 import matplotlib.colors as mcolors
 cols = list(mcolors.TABLEAU_COLORS.keys())
 
+# Scripts to calucaute and visualize PRC and ROC
 
 def makediffrank(list1,list2):
     rank1 = list1.rank()

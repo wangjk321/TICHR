@@ -4,6 +4,7 @@ refgene_file=$3
 tssrange=$4
 outname=$5
 
+#mark TSS positions
 awk -v OFS="\t" \
     '$6 == "+" {print $1,$2-"'$tssrange'",$2+"'$tssrange'",$4,$7} \
      $6 == "-" {print $1,$3-"'$tssrange'",$3+"'$tssrange'",$4,$7}' \

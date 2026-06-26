@@ -8,6 +8,7 @@ from rpy2.robjects.packages import importr
 from scipy.stats import mannwhitneyu
 from .RPpredictDEG import *
 
+# This file contains the code for identifying context-specific negative regulations
 
 def logneg(values):
     return np.sign(values) * np.log1p(np.abs(values))

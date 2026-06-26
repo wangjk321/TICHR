@@ -4,6 +4,8 @@ import pandas as pd
 import numpy as np
 import os,random, string,sys
 
+# This file provide the basic command to extract contact matrices from HiC files
+
 class paralfunJuicer(object):
     def __init__(self,myfun,num_processer):
         self.myfun = myfun

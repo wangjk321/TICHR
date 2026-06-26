@@ -1,12 +1,14 @@
 import pandas as pd
 import sys
 
+#Overlap functions
 def process_file(filename, n, m): #n and m are 0-based number
     df = pd.read_csv(filename,sep="\t",header=None)
     #print(df)
     result = df.groupby(list(df.columns[:n]))[df.columns[m-1]].mean().reset_index()
     return result
 
+#Conduct functions
 if __name__ == '__main__':
     if len(sys.argv) != 5:
         print("Usage: python process_data.py <filename> <n> <m> <outname>")

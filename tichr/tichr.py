@@ -11,11 +11,11 @@ from multiprocessing import Pool
 from joblib import Parallel, delayed
 from tqdm import tqdm
 import shutil
-
 from .preprocess_hic import *
 from .tichr_function import *
 from .highOrderStructure import *
 
+# This file contains the core functions for TICHR computations.
 
 def is_file_path_list(readFileList):
     if not isinstance(readFileList, list):
