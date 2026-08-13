@@ -40,7 +40,7 @@ def makeSiteBedFunction(candidatesite,candidateGeneFile,readFileList,gtfile,
         candidatesite_file = tmpdir+"/candidatebed.enhancer.bed"
     elif candidatesite == 'surronding_bin':
         print("......Generating bins for each "+str(binResolution)+"bp")
-
+        
         subprocess.run(["bash", codepath + "/bashcode/makeSurrondingBin.sh", 
                         candidateGeneFile,str(peakToGeneMaxDistance),gtfile,str(binResolution),tmpdir], 
                         stdout=open(tmpdir+"/SurrondongBin.log", "w"))
@@ -224,7 +224,7 @@ def makeWeightFunction(weightType,peakPos,tssPos,rpDecayDistance=10000,fixedFunc
     if weightType == 'fixedFunction':
         #print("using fixed function as the weight for epigenome")
         z = abs(peakPos-tssPos)
-        fixedFunctionType = ixedFunctionType.lower()
+        fixedFunctionType = fixedFunctionType.lower()
 
         if fixedFunctionType == 'sigmoid':
             lamda = -math.log(1/3)*1e5/rpDecayDistance

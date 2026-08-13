@@ -64,8 +64,8 @@ def findStrucWeight(rgxfile_raw,rgfile_raw,golddf,goldcol,outdir,
     # All column indices are 1-based (actual column numbers), not Python's 0-based indices
     if not os.path.exists(outdir): os.makedirs(outdir)
     print("Try raw adjustment")
-    matchgold(rgxfile_raw,golddf,outdir+"noadj.tsv",goldcol,percent=True,withhead=goldwithhead)
-    matchgold(rgxfile_raw,golddf,outdir+"adjRaw.tsv",goldcol,percent=False,withhead=goldwithhead)
+    matchgold(rgxfile_raw,golddf,outdir+"noadj.tsv",goldcol,percent=True,goldHead=goldwithhead)
+    matchgold(rgxfile_raw,golddf,outdir+"adjRaw.tsv",goldcol,percent=False,goldHead=goldwithhead)
 
     print("Try structure adjustment")
     rg_adjstruc, rgx_adjstruc = adjStructure(rgxfile_raw,
@@ -76,9 +76,9 @@ def findStrucWeight(rgxfile_raw,rgfile_raw,golddf,goldcol,outdir,
     rgx_adjstruc.to_csv(outdir+"adjStruc_beforematch.tsv",sep="\t",header=None,index=False)
 
     matchgold(outdir+"adjStruc_beforematch.tsv",golddf,outdir+"adjStruc.tsv",
-            goldcol,percent=True,withhead=goldwithhead)
+            goldcol,percent=True,goldHead=goldwithhead)
     matchgold(outdir+"adjStruc_beforematch.tsv",golddf,outdir+"adjRawStruc.tsv",
-            goldcol,percent=False,withhead=goldwithhead)
+            goldcol,percent=False,goldHead=goldwithhead)
     
     plotMultiPrc(outdir,matchcol=matchcol-1,truecol=truecol-1,dataset=outdir,matchedwithhead=goldwithhead,
                 typelist=typelist,outname="find_structure_weight.pdf")
@@ -100,8 +100,8 @@ def allcombination(rgxfile_raw,rgfile_raw,outdir,golddf,goldcol,tpmfile,
         print("***Try raw adjustment")
         print(outdir+"noadj.tsv")
         
-        matchgold(rgxfile_raw,golddf,outdir+"noadj.tsv",goldcol,percent=True,withhead=goldwithhead)
-        matchgold(rgxfile_raw,golddf,outdir+"adjRaw.tsv",goldcol,percent=False,withhead=goldwithhead)
+        matchgold(rgxfile_raw,golddf,outdir+"noadj.tsv",goldcol,percent=True,goldHead=goldwithhead)
+        matchgold(rgxfile_raw,golddf,outdir+"adjRaw.tsv",goldcol,percent=False,goldHead=goldwithhead)
 
         print("***Try TPM rank adjustment")
         rg_adjrank, rgx_adjrank= adjtpm(rgxfile_raw,tpmfile,rgfile=rgfile_raw,rggeneID=4,rgxgeneID=9,
@@ -110,9 +110,9 @@ def allcombination(rgxfile_raw,rgfile_raw,outdir,golddf,goldcol,tpmfile,
                                        ranktype=ranktype)
         rgx_adjrank.to_csv(outdir+"adjRank_beforematch.tsv",sep="\t",header=None,index=False)
         matchgold(outdir+"adjRank_beforematch.tsv",golddf,outdir+"adjRank.tsv",
-                  goldcol,percent=True,withhead=goldwithhead)
+                  goldcol,percent=True,goldHead=goldwithhead)
         matchgold(outdir+"adjRank_beforematch.tsv",golddf,outdir+"adjRankRaw.tsv",
-                  goldcol,percent=False,withhead=goldwithhead)
+                  goldcol,percent=False,goldHead=goldwithhead)
 
         print("***Try structure adjustment")
         rg_adjstruc, rgx_adjstruc = adjStructure(rgxfile_raw,
@@ -123,9 +123,9 @@ def allcombination(rgxfile_raw,rgfile_raw,outdir,golddf,goldcol,tpmfile,
         rgx_adjstruc.to_csv(outdir+"adjStruc_beforematch.tsv",sep="\t",header=None,index=False)
 
         matchgold(outdir+"adjStruc_beforematch.tsv",golddf,outdir+"adjStruc.tsv",
-              goldcol,percent=True,withhead=goldwithhead)
+              goldcol,percent=True,goldHead=goldwithhead)
         matchgold(outdir+"adjStruc_beforematch.tsv",golddf,outdir+"adjRawStruc.tsv",
-              goldcol,percent=False,withhead=goldwithhead)
+              goldcol,percent=False,goldHead=goldwithhead)
 
         print("***Try all adjustment")
         rg_adjStrucRank, rgx_adjStrucRank = adjtpm(outdir+"adjStruc_beforematch.tsv",tpmfile,
@@ -135,10 +135,10 @@ def allcombination(rgxfile_raw,rgfile_raw,outdir,golddf,goldcol,tpmfile,
         rgx_adjStrucRank.to_csv(outdir+"adjStrucRank_beforematch.tsv",sep="\t",header=None,index=False)
 
         matchgold(outdir+"adjStrucRank_beforematch.tsv",golddf,outdir+"adjStrucRank.tsv",
-          goldcol,percent=True,withhead=goldwithhead)
+          goldcol,percent=True,goldHead=goldwithhead)
 
         matchgold(outdir+"adjStrucRank_beforematch.tsv",golddf,outdir+"adjStrucRankRaw.tsv",
-              goldcol,percent=False,withhead=goldwithhead)
+              goldcol,percent=False,goldHead=goldwithhead)
 
     plotMultiPrc(outdir,matchcol=matchcol-1,truecol=truecol-1,dataset=outdir,matchedwithhead=goldwithhead,
                 typelist=typelist,outname="all_combination.pdf")

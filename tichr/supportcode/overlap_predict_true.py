@@ -3,6 +3,7 @@ import sys
 
 #Overlap functions
 def process_file(filename, n, m): #n and m are 0-based number
+    print(filename)
     df = pd.read_csv(filename,sep="\t",header=None)
     #print(df)
     result = df.groupby(list(df.columns[:n]))[df.columns[m-1]].mean().reset_index()
