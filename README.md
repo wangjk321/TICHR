@@ -111,6 +111,6 @@ You can open an issue in this repository, or contact the developer (wangjk321@gm
 In preparation, 2025.
 
 ## Last update
-Jun 1st, 2026
+Sep 1st, 2026
 
 
