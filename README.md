@@ -55,6 +55,14 @@ You can install the latest version of TICHR from PyPI using pip:
 pip install tichr
 ```
 
+or install locally
+``` shell
+git clone https://github.com/wangjk321/TICHR.git
+cd TICHR
+python -m pip install -e .
+```
+
+
 ## Usage
 
 There are two ways to use TICHR

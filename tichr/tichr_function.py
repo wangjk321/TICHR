@@ -234,9 +234,9 @@ def makeWeightFunction(weightType,peakPos,tssPos,rpDecayDistance=10000,fixedFunc
         elif fixedFunctionType == 'powerlaw':
             lamda = math.log(0.5)/math.log(rpDecayDistance)
             weight = (z+0.1)**lamda
-        elif fixedFunctionType == 'normPowerLaw':
+        elif fixedFunctionType == 'normpl':
             weight = getpowerlaw(z,given_gamma,given_scale,hicmindistance)
-        elif fixedFunctionType == 'constant1':
+        elif fixedFunctionType == 'constant':
             weight = 1
         elif fixedFunctionType == 'linear-half':
             weight = max(0, 1 - 0.5 * (z / rpDecayDistance))
@@ -244,6 +244,8 @@ def makeWeightFunction(weightType,peakPos,tssPos,rpDecayDistance=10000,fixedFunc
             weight = max(0, 1 - (z / peakToGeneMaxDistance))
         elif fixedFunctionType == 'closest':
             weight = abs(peakPos-tssPos)
+        elif fixedFunctionType == 'onlypromoter':
+            weight = 1.0 if z <= 1000 else 0.0
         else:
             print("please give a correct fixedFunctionType")
             exit(1)
